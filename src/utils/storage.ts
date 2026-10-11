@@ -1,7 +1,8 @@
-import { User, Doctor, Nurse, Patient, Appointment, AuditLog } from '../types';
+import { User, Doctor, Nurse, Patient, Appointment, AuditLog, Prescription } from '../types';
 import { 
   INITIAL_USERS, INITIAL_DOCTORS, INITIAL_NURSES, 
-  INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_AUDIT_LOGS 
+  INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_AUDIT_LOGS,
+  INITIAL_PRESCRIPTIONS
 } from '../data/initialData';
 
 const STORAGE_KEYS = {
@@ -10,6 +11,7 @@ const STORAGE_KEYS = {
   NURSES: 'clinestudo_nurses_v2',
   PATIENTS: 'clinestudo_patients_v2',
   APPOINTMENTS: 'clinestudo_appointments_v2',
+  PRESCRIPTIONS: 'clinestudo_prescriptions_v2',
   AUDIT: 'clinestudo_audit_v2',
   ACTIVE_USER: 'clinestudo_active_user_v2',
   VIEW_MODE: 'clinestudo_view_mode_v2',
@@ -97,6 +99,22 @@ export const storage = {
     }
   },
 
+  getPrescriptions: (): Prescription[] => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.PRESCRIPTIONS);
+      return data ? JSON.parse(data) : INITIAL_PRESCRIPTIONS;
+    } catch {
+      return INITIAL_PRESCRIPTIONS;
+    }
+  },
+  savePrescriptions: (prescriptions: Prescription[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.PRESCRIPTIONS, JSON.stringify(prescriptions));
+    } catch (e) {
+      console.warn('Erro ao salvar receitas no localStorage', e);
+    }
+  },
+
   getAuditLogs: (): AuditLog[] => {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.AUDIT);
@@ -174,6 +192,7 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.NURSES, JSON.stringify(INITIAL_NURSES));
       localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(INITIAL_PATIENTS));
       localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(INITIAL_APPOINTMENTS));
+      localStorage.setItem(STORAGE_KEYS.PRESCRIPTIONS, JSON.stringify(INITIAL_PRESCRIPTIONS));
       localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(INITIAL_AUDIT_LOGS));
       localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(INITIAL_USERS[0]));
     } catch (e) {
@@ -181,3 +200,4 @@ export const storage = {
     }
   }
 };
+

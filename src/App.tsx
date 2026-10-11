@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from './utils/storage';
-import { User, Doctor, Nurse, Patient, Appointment, AuditLog, AppointmentStatus } from './types';
+import { User, Doctor, Nurse, Patient, Appointment, AuditLog, AppointmentStatus, Prescription } from './types';
 import { DesktopWindow } from './components/DesktopWindow';
 import { DashboardView } from './components/DashboardView';
 import { DoctorsView } from './components/DoctorsView';
 import { NursesView } from './components/NursesView';
 import { PatientsView } from './components/PatientsView';
 import { ScheduleView } from './components/ScheduleView';
+import { PrescriptionsView } from './components/PrescriptionsView';
+import { PrescriptionModal } from './components/PrescriptionModal';
 import { UsersView } from './components/UsersView';
 import { ReportsView } from './components/ReportsView';
 import { AuditView } from './components/AuditView';
@@ -23,10 +25,17 @@ export default function App() {
   const [nurses, setNurses] = useState<Nurse[]>(() => storage.getNurses());
   const [patients, setPatients] = useState<Patient[]>(() => storage.getPatients());
   const [appointments, setAppointments] = useState<Appointment[]>(() => storage.getAppointments());
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>(() => storage.getPrescriptions());
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => storage.getAuditLogs());
 
   // Aba ativa: começa em 'dashboard' (Tela Bem-Vindos)
   const [activeTab, setActiveTab] = useState<string>(() => storage.getActiveTab());
+
+  // Estado do Modal de Prescrição Médica
+  const [prescriptionModalOpen, setPrescriptionModalOpen] = useState(false);
+  const [prescriptionInitialPatientId, setPrescriptionInitialPatientId] = useState<number | undefined>(undefined);
+  const [prescriptionInitialDoctorId, setPrescriptionInitialDoctorId] = useState<number | undefined>(undefined);
+  const [existingPrescriptionToView, setExistingPrescriptionToView] = useState<Prescription | null>(null);
 
   // Sincroniza persistência de sessão e aba ativa
   useEffect(() => {
@@ -230,7 +239,82 @@ export default function App() {
     return { success: true, message: `Status da consulta atualizado para ${status}.` };
   };
 
-  // 5. Usuários
+  // 5. RECEITAS MÉDICAS, PRESCRIÇÕES, QR CODE E WHATSAPP
+  const handleOpenCreatePrescription = (patientId?: number, doctorId?: number) => {
+    setExistingPrescriptionToView(null);
+    setPrescriptionInitialPatientId(patientId);
+    setPrescriptionInitialDoctorId(doctorId);
+    setPrescriptionModalOpen(true);
+  };
+
+  const handleOpenViewPrescription = (prescription: Prescription) => {
+    setExistingPrescriptionToView(prescription);
+    setPrescriptionInitialPatientId(prescription.pacienteId);
+    setPrescriptionInitialDoctorId(prescription.medicoId);
+    setPrescriptionModalOpen(true);
+  };
+
+  const handleSavePrescription = (prescData: Omit<Prescription, 'id' | 'criadoEm'>, id?: number) => {
+    if (id) {
+      const updated = prescriptions.map(p => p.id === id ? { ...prescData, id, criadoEm: p.criadoEm } : p);
+      setPrescriptions(updated);
+      storage.savePrescriptions(updated);
+      addAuditLog('EDITAR_RECEITA', 'RECEITAS', `Receita ${prescData.codigoAutenticidade} atualizada para ${prescData.pacienteNome}`, id);
+      const saved = updated.find(p => p.id === id);
+      return { success: true, message: 'Receita médica atualizada com sucesso.', prescription: saved };
+    } else {
+      const newId = prescriptions.length ? Math.max(...prescriptions.map(p => p.id)) + 1 : 1;
+      const newPresc: Prescription = {
+        ...prescData,
+        id: newId,
+        criadoEm: new Date().toISOString(),
+      };
+      const updated = [newPresc, ...prescriptions];
+      setPrescriptions(updated);
+      storage.savePrescriptions(updated);
+      addAuditLog('CRIAR_RECEITA', 'RECEITAS', `Receita ${prescData.codigoAutenticidade} emitida para ${prescData.pacienteNome} por ${prescData.medicoNome} (${prescData.medicamentos.length} medicamentos)`, newId);
+      return { success: true, message: 'Receita médica prescrita e arquivada com sucesso no cadastro do paciente!', prescription: newPresc };
+    }
+  };
+
+  const handleSendWhatsAppPrescription = (prescription: Prescription) => {
+    const rawPhone = prescription.pacienteTelefone.replace(/\D/g, '');
+    let formattedPhone = rawPhone;
+    if (formattedPhone.length === 10 || formattedPhone.length === 11) {
+      formattedPhone = '55' + formattedPhone;
+    }
+
+    let msg = `🏥 *CLINESTUDO - RECEITA MÉDICA DIGITAL*\n`;
+    msg += `----------------------------------------\n`;
+    msg += `Olá, *${prescription.pacienteNome}*! Segue a sua receita médica emitida pelo(a) *${prescription.medicoNome}* (CRM ${prescription.medicoCrm}/${prescription.medicoUfCrm} - ${prescription.medicoEspecialidade}).\n\n`;
+    msg += `📅 *Data de Emissão:* ${prescription.dataEmissao} às ${prescription.horaEmissao}\n`;
+    msg += `🔒 *Código de Autenticidade:* \`${prescription.codigoAutenticidade}\`\n\n`;
+    
+    msg += `💊 *MEDICAÇÕES E MEDICAMENTOS PARA CASA:*\n`;
+    prescription.medicamentos.forEach((med, index) => {
+      msg += `\n*${index + 1}. ${med.nome}* (${med.dosagem || 'Dose padrão'})\n`;
+      msg += `   • *Como tomar:* ${med.frequencia}\n`;
+      if (med.duracao) msg += `   • *Duração:* ${med.duracao}\n`;
+      if (med.quantidade) msg += `   • *Quantidade:* ${med.quantidade}\n`;
+      if (med.instrucoesCasa) msg += `   • *Orientações:* ${med.instrucoesCasa}\n`;
+    });
+
+    if (prescription.orientacoesGerais) {
+      msg += `\n📋 *ORIENTAÇÕES GERAIS PARA CASA:*\n${prescription.orientacoesGerais}\n`;
+    }
+
+    msg += `\n⏳ *Validade:* ${prescription.validadeDias} dias a partir da data de emissão.\n`;
+    msg += `\n📲 *VALIDAÇÃO DIGITAL COM QR CODE:*\n`;
+    msg += `https://clinestudo.saude.gov.br/validar?codigo=${prescription.codigoAutenticidade}\n\n`;
+    msg += `_ClinEstudo - Cuidando da sua saúde com dedicação e excelência._`;
+
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(msg)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+
+    addAuditLog('ENVIAR_RECEITA_WHATSAPP', 'RECEITAS', `Receita ${prescription.codigoAutenticidade} enviada para o WhatsApp de ${prescription.pacienteNome} (${prescription.pacienteTelefone})`, prescription.id);
+  };
+
+  // 6. Usuários
   const handleSaveUser = (userData: Partial<User>, id?: number) => {
     if (id) {
       const updated = users.map(u => u.id === id ? { ...u, ...userData } : u);
@@ -239,15 +323,15 @@ export default function App() {
       addAuditLog('EDITAR_USUARIO', 'USUARIOS', `Usuário ID ${id} atualizado`, id);
       return { success: true, message: 'Usuário atualizado com sucesso.' };
     } else {
-      const exists = users.find(u => u.login.toLowerCase() === userData.login?.toLowerCase());
-      if (exists) {
+      const duplicate = users.find(u => u.login === userData.login);
+      if (duplicate) {
         return { success: false, message: `O login "${userData.login}" já está em uso.` };
       }
       const newId = users.length ? Math.max(...users.map(u => u.id)) + 1 : 1;
       const newUser: User = {
         id: newId,
         nome: userData.nome || 'Novo Usuário',
-        login: userData.login || `user${newId}`,
+        login: userData.login || 'usuario',
         perfil: userData.perfil || 'RECEPCIONISTA',
         ativo: true,
         tentativasFalhas: 0,
@@ -258,15 +342,15 @@ export default function App() {
       setUsers(updated);
       storage.saveUsers(updated);
       addAuditLog('CRIAR_USUARIO', 'USUARIOS', `Usuário ${newUser.login} criado`, newId);
-      return { success: true, message: 'Usuário cadastrado com sucesso.' };
+      return { success: true, message: 'Novo usuário criado com sucesso.' };
     }
   };
 
   const handleToggleUserStatus = (id: number) => {
     const target = users.find(u => u.id === id);
     if (!target) return { success: false, message: 'Usuário não encontrado.' };
-    if (target.login === 'admin') {
-      return { success: false, message: 'O usuário administrador principal não pode ser desativado.' };
+    if (target.login === 'admin' && target.ativo) {
+      return { success: false, message: 'O usuário Administrador mestre não pode ser desativado.' };
     }
     const updated = users.map(u => u.id === id ? { ...u, ativo: !u.ativo } : u);
     setUsers(updated);
@@ -296,6 +380,7 @@ export default function App() {
     setNurses(storage.getNurses());
     setPatients(storage.getPatients());
     setAppointments(storage.getAppointments());
+    setPrescriptions(storage.getPrescriptions());
     setAuditLogs(storage.getAuditLogs());
     setCurrentUser(storage.getActiveUser());
     addAuditLog('REDEFINIR_BANCO', 'SISTEMA', 'Banco de dados restaurado para os registros padrão iniciais');
@@ -335,11 +420,13 @@ export default function App() {
               nurses={nurses}
               patients={patients}
               appointments={appointments}
+              prescriptions={prescriptions}
               currentUser={currentUser}
               onNavigate={setActiveTab}
               onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
               onOpenNewAppointment={() => setActiveTab('agenda')}
               onOpenNewPatient={() => setActiveTab('pacientes')}
+              onOpenNewPrescription={() => handleOpenCreatePrescription()}
             />
           )}
 
@@ -365,9 +452,13 @@ export default function App() {
             <PatientsView
               patients={patients}
               appointments={appointments}
+              prescriptions={prescriptions}
               currentUser={currentUser}
               onSavePatient={handleSavePatient}
               onDeletePatient={handleDeletePatient}
+              onOpenCreatePrescription={handleOpenCreatePrescription}
+              onOpenViewPrescription={handleOpenViewPrescription}
+              onSendWhatsAppPrescription={handleSendWhatsAppPrescription}
             />
           )}
 
@@ -380,6 +471,19 @@ export default function App() {
               currentUser={currentUser}
               onSaveAppointment={handleSaveAppointment}
               onUpdateStatus={handleUpdateAppointmentStatus}
+              onOpenCreatePrescription={handleOpenCreatePrescription}
+            />
+          )}
+
+          {activeTab === 'receitas' && (
+            <PrescriptionsView
+              prescriptions={prescriptions}
+              patients={patients}
+              doctors={doctors}
+              currentUser={currentUser}
+              onOpenCreatePrescription={handleOpenCreatePrescription}
+              onOpenViewPrescription={handleOpenViewPrescription}
+              onSendWhatsApp={handleSendWhatsAppPrescription}
             />
           )}
 
@@ -409,6 +513,25 @@ export default function App() {
 
           {activeTab === 'python_hub' && (
             <PythonProjectHub />
+          )}
+
+          {/* Modal Global de Prescrição Médica & Impressão com QR Code & WhatsApp */}
+          {prescriptionModalOpen && (
+            <PrescriptionModal
+              isOpen={prescriptionModalOpen}
+              onClose={() => {
+                setPrescriptionModalOpen(false);
+                setExistingPrescriptionToView(null);
+              }}
+              onSavePrescription={handleSavePrescription}
+              patients={patients}
+              doctors={doctors}
+              currentUser={currentUser}
+              initialPatientId={prescriptionInitialPatientId}
+              initialDoctorId={prescriptionInitialDoctorId}
+              existingPrescription={existingPrescriptionToView}
+              onPrescriptionSentWhatsApp={handleSendWhatsAppPrescription}
+            />
           )}
         </DesktopWindow>
       )}

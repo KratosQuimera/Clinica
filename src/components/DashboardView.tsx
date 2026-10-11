@@ -2,20 +2,22 @@ import React from 'react';
 import { 
   Users, Stethoscope, Calendar, Clock, CheckCircle2, 
   AlertCircle, Activity, ChevronRight, UserPlus, CalendarPlus, FileText,
-  UserCheck, Shield, Sparkles
+  UserCheck, Shield, Sparkles, Pill, MessageCircle, Printer
 } from 'lucide-react';
-import { Doctor, Nurse, Patient, Appointment, User } from '../types';
+import { Doctor, Nurse, Patient, Appointment, User, Prescription } from '../types';
 
 interface DashboardViewProps {
   doctors: Doctor[];
   nurses: Nurse[];
   patients: Patient[];
   appointments: Appointment[];
+  prescriptions: Prescription[];
   currentUser: User;
   onNavigate: (tab: string) => void;
   onUpdateAppointmentStatus: (id: number, status: any) => void;
   onOpenNewAppointment: () => void;
   onOpenNewPatient: () => void;
+  onOpenNewPrescription: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -23,11 +25,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   nurses,
   patients,
   appointments,
+  prescriptions,
   currentUser,
   onNavigate,
   onUpdateAppointmentStatus,
   onOpenNewAppointment,
   onOpenNewPatient,
+  onOpenNewPrescription,
 }) => {
   const todayStr = '2026-10-10';
   const todayAppointments = appointments.filter(a => a.dataAgenda === todayStr);
@@ -76,8 +80,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Selecione uma das opções rápidas abaixo ou utilize a barra superior de menus no formato original NetBeans (Cadastros, Relatórios, Ferramentas, Sair).
           </p>
 
-          {/* Os 4 botões de atalho clássicos da TelaPrincipal do NetBeans */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+          {/* Os 5 botões de atalho da TelaPrincipal */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 pt-1">
             <button
               onClick={() => onNavigate('medicos')}
               className="flex flex-col items-center justify-center p-4 bg-slate-950/80 hover:bg-sky-950/40 border border-sky-500/40 hover:border-sky-400 rounded-lg text-center transition-all group cursor-pointer shadow-sm"
@@ -121,12 +125,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="text-xs font-bold text-white group-hover:text-amber-300">Agenda Consultas</span>
               <span className="text-[10px] text-slate-400 mt-0.5">Horários & Conflitos</span>
             </button>
+
+            <button
+              onClick={() => onNavigate('receitas')}
+              className="flex flex-col items-center justify-center p-4 bg-slate-950/80 hover:bg-emerald-950/50 border border-emerald-500/50 hover:border-emerald-400 rounded-lg text-center transition-all group cursor-pointer shadow-sm col-span-2 sm:col-span-1"
+            >
+              <div className="p-3 bg-emerald-500/15 rounded-full group-hover:scale-105 transition-transform text-emerald-400 mb-2 border border-emerald-500/30">
+                <Pill className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold text-emerald-300 group-hover:text-emerald-200">Receitas Médicas</span>
+              <span className="text-[10px] text-slate-400 mt-0.5">QR Code & WhatsApp</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
         <div className="bg-slate-800/60 p-4 rounded-lg border border-slate-700/60 flex items-center justify-between">
           <div>
             <div className="text-xs font-medium text-slate-400">Consultas Hoje</div>
@@ -179,6 +194,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="p-3 bg-emerald-500/10 rounded border border-emerald-500/20 text-emerald-400">
             <CheckCircle2 className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-slate-800/60 p-4 rounded-lg border border-slate-700/60 flex items-center justify-between">
+          <div>
+            <div className="text-xs font-medium text-slate-400">Receitas Emitidas</div>
+            <div className="text-2xl font-bold text-emerald-400 mt-1">{prescriptions.length}</div>
+            <div className="text-[11px] text-slate-400 mt-1">QR Code & WhatsApp</div>
+          </div>
+          <div className="p-3 bg-emerald-500/10 rounded border border-emerald-500/20 text-emerald-400">
+            <Pill className="w-5 h-5" />
           </div>
         </div>
       </div>
@@ -336,6 +362,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <div className="font-semibold text-emerald-300">Python Hub</div>
                 <div className="text-[11px] text-slate-400">Código & .EXE</div>
+              </button>
+              <button
+                onClick={() => onNavigate('receitas')}
+                className="p-3 bg-emerald-950/30 hover:bg-emerald-900/40 text-left rounded border border-emerald-700/50 transition-colors text-slate-200 cursor-pointer col-span-2"
+              >
+                <div className="font-semibold text-emerald-300 flex items-center gap-1.5">
+                  <Pill className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Prescrições Médicas & Medicamentos para Casa</span>
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  Emissão de receituário com QR Code, envio para WhatsApp e guarda no cadastro do paciente
+                </div>
               </button>
             </div>
           </div>

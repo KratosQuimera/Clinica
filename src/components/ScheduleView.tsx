@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Calendar, Clock, Plus, Search, Filter, AlertTriangle, 
-  CheckCircle2, XCircle, FileText, ChevronLeft, ChevronRight, X, User
+  CheckCircle2, XCircle, FileText, ChevronLeft, ChevronRight, X, User, Pill
 } from 'lucide-react';
 import { Appointment, Doctor, Patient, Nurse, AppointmentStatus, User as AppUser } from '../types';
 
@@ -13,6 +13,7 @@ interface ScheduleViewProps {
   currentUser: AppUser;
   onSaveAppointment: (appointment: Omit<Appointment, 'id' | 'criadoEm'>, id?: number) => { success: boolean; message: string };
   onUpdateStatus: (id: number, status: AppointmentStatus, obs?: string) => { success: boolean; message: string };
+  onOpenCreatePrescription: (patientId: number, doctorId?: number) => void;
 }
 
 export const ScheduleView: React.FC<ScheduleViewProps> = ({
@@ -23,6 +24,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   currentUser,
   onSaveAppointment,
   onUpdateStatus,
+  onOpenCreatePrescription,
 }) => {
   const [viewMode, setViewMode] = useState<'dia' | 'semana' | 'mes'>('dia');
   const [selectedDate, setSelectedDate] = useState('2026-10-10');
@@ -318,16 +320,26 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                       )}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => {
-                          setShowStatusModal(app);
-                          setStatusNovo(app.status);
-                          setStatusObs(app.observacoes || '');
-                        }}
-                        className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white rounded text-xs font-medium border border-slate-600 transition-colors cursor-pointer"
-                      >
-                        Atualizar Status
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => onOpenCreatePrescription(app.pacienteId, app.medicoId)}
+                          className="px-2.5 py-1.5 bg-emerald-700/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded text-xs font-semibold border border-emerald-600/40 transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Prescrever Receita Médica com QR Code e WhatsApp"
+                        >
+                          <Pill className="w-3.5 h-3.5" />
+                          <span>Receita</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowStatusModal(app);
+                            setStatusNovo(app.status);
+                            setStatusObs(app.observacoes || '');
+                          }}
+                          className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white rounded text-xs font-medium border border-slate-600 transition-colors cursor-pointer"
+                        >
+                          Atualizar Status
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -540,6 +552,31 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                   onChange={(e) => setStatusObs(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
                 />
+              </div>
+
+              {/* Botão de Prescrever Receita para o Paciente */}
+              <div className="bg-emerald-950/40 p-3 rounded-lg border border-emerald-800/60 flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-emerald-300 font-semibold flex items-center gap-1.5 text-xs">
+                    <Pill className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Prescrever Medicamentos para Casa</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Gera receita oficial com QR Code e envio via WhatsApp para este paciente.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pacId = showStatusModal.pacienteId;
+                    const medId = showStatusModal.medicoId;
+                    setShowStatusModal(null);
+                    onOpenCreatePrescription(pacId, medId);
+                  }}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition-colors shrink-0 cursor-pointer shadow-sm"
+                >
+                  Prescrever
+                </button>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-700">

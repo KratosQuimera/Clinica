@@ -1,25 +1,34 @@
 import React, { useState } from 'react';
 import { 
   Users, Plus, Search, Edit2, Trash2, CheckCircle2, 
-  AlertTriangle, Phone, Calendar, ShieldAlert, Heart, X, FileText
+  AlertTriangle, Phone, Calendar, ShieldAlert, Heart, X, FileText,
+  MessageCircle, Printer, Pill, ShieldCheck
 } from 'lucide-react';
-import { Patient, Appointment, User } from '../types';
+import { Patient, Appointment, User, Prescription } from '../types';
 import { validarCPF, formatarCPF, formatarTelefone } from '../utils/validators';
 
 interface PatientsViewProps {
   patients: Patient[];
   appointments: Appointment[];
+  prescriptions: Prescription[];
   currentUser: User;
   onSavePatient: (patient: Omit<Patient, 'id' | 'criadoEm'>, id?: number) => { success: boolean; message: string };
   onDeletePatient: (id: number) => { success: boolean; message: string };
+  onOpenCreatePrescription: (patientId: number) => void;
+  onOpenViewPrescription: (prescription: Prescription) => void;
+  onSendWhatsAppPrescription: (prescription: Prescription) => void;
 }
 
 export const PatientsView: React.FC<PatientsViewProps> = ({
   patients,
   appointments,
+  prescriptions,
   currentUser,
   onSavePatient,
   onDeletePatient,
+  onOpenCreatePrescription,
+  onOpenViewPrescription,
+  onSendWhatsAppPrescription,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterConvenio, setFilterConvenio] = useState('TODOS');
@@ -249,6 +258,11 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
                             <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                           </span>
                         )}
+                        {prescriptions.filter(pr => pr.pacienteId === p.id).length > 0 && (
+                          <span className="text-[10px] bg-emerald-950/80 text-emerald-400 border border-emerald-800 px-1.5 py-0.2 rounded font-mono" title="Receitas médicas cadastradas">
+                            {prescriptions.filter(pr => pr.pacienteId === p.id).length} rec
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-slate-400">
                         Nasc: {p.dataNascimento} ({p.sexo})
@@ -281,10 +295,18 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
                       )}
                     </td>
                     <td className="py-3 px-4 text-right space-x-1.5">
+                      {/* Prescrever / Ver Receita */}
+                      <button
+                        onClick={() => onOpenCreatePrescription(p.id)}
+                        className="p-1.5 text-emerald-400 hover:text-white hover:bg-emerald-600/40 rounded transition-colors inline-block"
+                        title="Prescrever Receita / Medicamentos para Casa"
+                      >
+                        <Pill className="w-3.5 h-3.5" />
+                      </button>
                       <button
                         onClick={() => setViewingPatient(p)}
-                        className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-slate-700 rounded transition-colors"
-                        title="Ver Ficha Clínica"
+                        className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-slate-700 rounded transition-colors inline-block"
+                        title="Ver Ficha Clínica & Histórico de Receitas"
                       >
                         <FileText className="w-3.5 h-3.5" />
                       </button>
@@ -292,14 +314,14 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
                         <>
                           <button
                             onClick={() => handleOpenEdit(p)}
-                            className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 rounded transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 rounded transition-colors inline-block"
                             title="Editar Dados"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setConfirmDeleteId(p.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-700 rounded transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-700 rounded transition-colors inline-block"
                             title="Desativar Paciente"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -531,9 +553,101 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
                 <div className="text-amber-300 font-medium">{viewingPatient.alergias || 'Nenhuma alergia conhecida'}</div>
               </div>
 
-              <div>
+              {/* HISTÓRICO DE RECEITAS E PRESCRIÇÕES MÉDICAS GUARDADAS NO CADASTRO DO PACIENTE */}
+              <div className="border-t border-slate-700/80 pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Pill className="w-4 h-4 text-emerald-400" />
+                    <h3 className="text-xs font-bold text-white">
+                      Receitas & Medicamentos para Casa ({prescriptions.filter(pr => pr.pacienteId === viewingPatient.id).length})
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => onOpenCreatePrescription(viewingPatient.id)}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-semibold transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Prescrever Nova Receita</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2.5 max-h-56 overflow-y-auto">
+                  {prescriptions.filter(pr => pr.pacienteId === viewingPatient.id).length === 0 ? (
+                    <div className="p-3 bg-slate-900 rounded border border-dashed border-slate-800 text-center space-y-1.5">
+                      <div className="text-slate-400 text-xs">Nenhuma receita prescrita para este paciente até o momento.</div>
+                      <button
+                        onClick={() => onOpenCreatePrescription(viewingPatient.id)}
+                        className="text-emerald-400 hover:text-emerald-300 text-xs font-medium underline"
+                      >
+                        + Prescrever agora a primeira receita médica
+                      </button>
+                    </div>
+                  ) : (
+                    prescriptions.filter(pr => pr.pacienteId === viewingPatient.id).map(pr => (
+                      <div key={pr.id} className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-2">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[11px] font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800 flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3" />
+                                {pr.codigoAutenticidade}
+                              </span>
+                              <span className="text-[11px] text-slate-400">
+                                {pr.dataEmissao} às {pr.horaEmissao}
+                              </span>
+                            </div>
+                            <div className="text-xs font-semibold text-white mt-1">
+                              Prescrito por: {pr.medicoNome} <span className="text-sky-300 text-[11px]">(CRM {pr.medicoCrm}/{pr.medicoUfCrm})</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => onSendWhatsAppPrescription(pr)}
+                              className="px-2 py-1 bg-emerald-700/40 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded text-[11px] font-semibold border border-emerald-600/40 transition-colors flex items-center gap-1"
+                              title="Enviar via WhatsApp"
+                            >
+                              <MessageCircle className="w-3 h-3 fill-current" />
+                              <span>WhatsApp</span>
+                            </button>
+                            <button
+                              onClick={() => onOpenViewPrescription(pr)}
+                              className="px-2 py-1 bg-sky-700/40 hover:bg-sky-600 text-sky-300 hover:text-white rounded text-[11px] font-semibold border border-sky-600/40 transition-colors flex items-center gap-1"
+                              title="Imprimir Receita com QR Code"
+                            >
+                              <Printer className="w-3 h-3" />
+                              <span>Imprimir / QR</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Medicamentos prescritos */}
+                        <div className="bg-slate-950/80 p-2 rounded border border-slate-850 space-y-1">
+                          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            Medicamentos para Casa:
+                          </div>
+                          {pr.medicamentos.map((m, i) => (
+                            <div key={m.id || i} className="text-[11px] text-slate-200 pl-2 border-l border-emerald-600/70">
+                              <span className="font-bold text-emerald-300">{m.nome}</span> {m.dosagem && <span>({m.dosagem})</span>} — <span>{m.frequencia}</span>
+                              {m.instrucoesCasa && <span className="text-slate-400 italic block text-[10px]">↳ {m.instrucoesCasa}</span>}
+                            </div>
+                          ))}
+                        </div>
+
+                        {pr.orientacoesGerais && (
+                          <div className="text-[11px] text-slate-400 italic">
+                            Orientações: {pr.orientacoesGerais}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-slate-700/80 pt-2">
                 <h3 className="text-xs font-semibold text-slate-300 mb-2">Histórico de Consultas & Agendamentos</h3>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                <div className="space-y-1.5 max-h-36 overflow-y-auto">
                   {appointments.filter(a => a.pacienteId === viewingPatient.id).length === 0 ? (
                     <div className="text-slate-500 text-xs italic">Nenhum agendamento prévio registrado.</div>
                   ) : (
@@ -551,10 +665,19 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end pt-3 border-t border-slate-700">
+            <div className="flex justify-between items-center pt-3 border-t border-slate-700">
+              <button
+                type="button"
+                onClick={() => onOpenCreatePrescription(viewingPatient.id)}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Nova Receita para {viewingPatient.nome.split(' ')[0]}</span>
+              </button>
+
               <button
                 onClick={() => setViewingPatient(null)}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-medium"
+                className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-medium cursor-pointer"
               >
                 Fechar Ficha
               </button>

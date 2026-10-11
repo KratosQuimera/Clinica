@@ -79,14 +79,48 @@ export interface Appointment {
   enfermeiroNome?: string;
 }
 
+export interface PrescriptionMedication {
+  id: string;
+  nome: string;
+  dosagem: string;
+  via: string;
+  frequencia: string;
+  duracao: string;
+  quantidade: string;
+  instrucoesCasa: string;
+}
+
+export interface Prescription {
+  id: number;
+  codigoAutenticidade: string;
+  pacienteId: number;
+  pacienteNome: string;
+  pacienteCpf: string;
+  pacienteTelefone: string;
+  pacienteConvenio?: string;
+  medicoId: number;
+  medicoNome: string;
+  medicoCrm: string;
+  medicoUfCrm: string;
+  medicoEspecialidade: string;
+  dataEmissao: string;
+  horaEmissao: string;
+  medicamentos: PrescriptionMedication[];
+  orientacoesGerais: string;
+  validadeDias: number;
+  status: 'ATIVA' | 'DISPENSADA' | 'CANCELADA';
+  criadoEm: string;
+}
+
 export interface AuditLog {
   id: number;
   usuarioId?: number;
   loginUsuario: string;
   acao: string;
-  entidade: 'USUARIOS' | 'MEDICOS' | 'ENFERMEIROS' | 'PACIENTES' | 'AGENDAMENTOS' | 'SISTEMA';
+  entidade: 'USUARIOS' | 'MEDICOS' | 'ENFERMEIROS' | 'PACIENTES' | 'AGENDAMENTOS' | 'RECEITAS' | 'SISTEMA';
   registroId?: number;
   detalhes: string;
   ipOrigem: string;
   criadoEm: string;
 }
+
