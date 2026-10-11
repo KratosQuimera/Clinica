@@ -1,0 +1,6 @@
+{
+  "name": "ClinEstudo - Sistema de Gestão Clínica",
+  "description": "Sistema completo de gestão clínica com módulos de login, médicos, enfermeiros, pacientes, agendamento de consultas, relatórios, auditoria LGPD e distribuição desktop Python/PySide6.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

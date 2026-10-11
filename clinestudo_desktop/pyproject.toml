@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clinestudo-desktop"
+version = "2.4.0"
+description = "Sistema Desktop de Gestão Clínica Integrada em Python 3.12 e PySide6 com PostgreSQL"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.6.0",
+    "psycopg[binary]>=3.1.18",
+    "python-dotenv>=1.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pyinstaller>=6.5.0",
+]
+
+[project.scripts]
+clinestudo = "clinestudo_desktop.main:main"
