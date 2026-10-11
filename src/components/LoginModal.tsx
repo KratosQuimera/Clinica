@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, User, AlertTriangle, CheckCircle2, Key, Info } from 'lucide-react';
+import { Shield, Lock, User, AlertTriangle, CheckCircle2, Key, Info, Check } from 'lucide-react';
 import { User as AppUser } from '../types';
 
 interface LoginModalProps {
@@ -53,7 +53,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     const foundUser = users.find(u => u.login.toLowerCase() === login.trim().toLowerCase());
     if (!foundUser) {
       onRecordAudit('LOGIN_FALHA', 'USUARIOS', `Tentativa de login com usuário inexistente: ${login}`);
-      setErrorMessage('Credenciais inválidas. Usuário ou senha incorretos.');
+      setErrorMessage('Credenciais inválidas. Usuário não encontrado.');
       return;
     }
 
@@ -62,7 +62,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       return;
     }
 
-    // Senhas esperadas de demonstração
+    // Senhas válidas conhecidas
     const senhasValidas: Record<string, string> = {
       'admin': 'admin123',
       'medico.silva': 'medico123',
@@ -78,11 +78,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       if (currentFails >= 3) {
         const unlockAt = Date.now() + 15 * 60 * 1000; // 15 minutos
         setLockoutUntil(prev => ({ ...prev, [login]: unlockAt }));
-        onRecordAudit('LOGIN_BLOQUEIO', 'USUARIOS', `Conta ${login} bloqueada por 15 minutos após 3 falhas consecutivas.`);
+        onRecordAudit('LOGIN_BLOQUEIO', 'USUARIOS', `Conta ${login} bloqueada por 15 minutos após 3 falhas.`);
         setErrorMessage('Conta bloqueada temporariamente por 15 minutos após 3 tentativas inválidas consecutivas.');
       } else {
         onRecordAudit('LOGIN_FALHA', 'USUARIOS', `Senha incorreta para ${login} (tentativa ${currentFails}/3)`);
-        setErrorMessage(`Credenciais inválidas. Tentativa ${currentFails} de 3.`);
+        setErrorMessage(`Senha incorreta. Tentativa ${currentFails} de 3.`);
       }
       return;
     }
@@ -93,121 +93,151 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     onLoginSuccess(foundUser);
   };
 
-  const handleQuickSelect = (userLogin: string, defaultPass: string) => {
+  const handleQuickSelect = (userLogin: string, pass: string) => {
     setLogin(userLogin);
-    setSenha(defaultPass);
+    setSenha(pass);
     setErrorMessage('');
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-xl max-w-md w-full p-8 shadow-2xl space-y-6">
-        {/* Brand header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-1">
-            <Shield className="w-8 h-8" />
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">ClinEstudo Desktop</h1>
-          <p className="text-xs text-slate-400">
-            Sistema Integrado de Gestão Médica & Atendimento Ambulatorial
-          </p>
+    <div className="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4">
+      {/* Diálogo clássico TelaLogin do NetBeans */}
+      <div className="bg-slate-900 border-2 border-sky-600 rounded-lg max-w-md w-full shadow-2xl overflow-hidden">
+        {/* Title bar do NetBeans */}
+        <div className="h-8 bg-sky-900/90 border-b border-sky-700 px-3 flex items-center justify-between text-xs font-bold text-white">
+          <span className="flex items-center gap-2">
+            <Lock className="w-3.5 h-3.5 text-sky-300" />
+            ClinEstudo - Tela de Login (NetBeans Swing)
+          </span>
+          <span className="text-[10px] text-sky-200 font-mono">v2.4.0</span>
         </div>
 
-        {/* Error message */}
-        {errorMessage && (
-          <div className="p-3 bg-rose-950/70 border border-rose-800 rounded-lg text-rose-200 text-xs flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {/* Countdown notice if locked */}
-        {remainingSeconds > 0 && (
-          <div className="p-3 bg-amber-950/60 border border-amber-800 rounded-lg text-amber-300 text-xs text-center font-mono">
-            Tempo restante para liberação: {Math.floor(remainingSeconds / 60)}m {remainingSeconds % 60}s
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-4 text-xs">
-          <div>
-            <label className="block text-slate-300 font-medium mb-1.5">Usuário do Sistema</label>
-            <div className="relative">
-              <User className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                required
-                value={login}
-                onChange={(e) => setLogin(e.target.value)}
-                placeholder="ex: admin ou medico.silva"
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-              />
+        <div className="p-6 space-y-5">
+          {/* Caixa de destaque da Senha do Administrador */}
+          <div className="p-3 bg-sky-950/80 border border-sky-500/40 rounded-lg space-y-1.5">
+            <div className="flex items-center gap-1.5 text-sky-300 font-bold text-xs">
+              <Key className="w-3.5 h-3.5 text-sky-400" />
+              <span>Senha do Administrador:</span>
+            </div>
+            <div className="flex items-center justify-between font-mono text-xs bg-slate-950 p-2 rounded border border-slate-800">
+              <span className="text-slate-300">Usuário: <strong className="text-emerald-400">admin</strong></span>
+              <span className="text-slate-300">Senha: <strong className="text-emerald-400">admin123</strong></span>
             </div>
           </div>
 
-          <div>
-            <label className="block text-slate-300 font-medium mb-1.5">Senha de Acesso</label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-              <input
-                type="password"
-                required
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-              />
+          {/* Mensagem de Erro */}
+          {errorMessage && (
+            <div className="p-3 bg-rose-950/80 border border-rose-800 rounded text-rose-200 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{errorMessage}</span>
             </div>
-          </div>
+          )}
 
-          <button
-            type="submit"
-            disabled={remainingSeconds > 0}
-            className={`w-full py-2.5 rounded-lg text-xs font-semibold shadow-md transition-colors ${
-              remainingSeconds > 0
-                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
-            }`}
-          >
-            Acessar Sistema
-          </button>
-        </form>
+          {/* Contagem regressiva se bloqueado */}
+          {remainingSeconds > 0 && (
+            <div className="p-2.5 bg-amber-950/70 border border-amber-800 rounded text-amber-300 text-xs text-center font-mono">
+              Tempo restante para desbloqueio: {Math.floor(remainingSeconds / 60)}m {remainingSeconds % 60}s
+            </div>
+          )}
 
-        {/* Quick Role Tester Bar */}
-        <div className="pt-4 border-t border-slate-800 space-y-2">
-          <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-            <Info className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Acesso Rápido para Teste de Perfis (RBAC):</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <button
-              onClick={() => handleQuickSelect('admin', 'admin123')}
-              className="p-2 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded text-left transition-colors cursor-pointer"
-            >
-              <div className="font-semibold text-emerald-400 text-[11px]">admin</div>
-              <div className="text-[10px] text-slate-400">Administrador Geral</div>
-            </button>
-            <button
-              onClick={() => handleQuickSelect('medico.silva', 'medico123')}
-              className="p-2 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded text-left transition-colors cursor-pointer"
-            >
-              <div className="font-semibold text-teal-400 text-[11px]">medico.silva</div>
-              <div className="text-[10px] text-slate-400">Dr. Roberto (Cardio)</div>
-            </button>
-            <button
-              onClick={() => handleQuickSelect('enf.carla', 'enf123')}
-              className="p-2 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded text-left transition-colors cursor-pointer"
-            >
-              <div className="font-semibold text-purple-400 text-[11px]">enf.carla</div>
-              <div className="text-[10px] text-slate-400">Enfª Carla (Triagem)</div>
-            </button>
-            <button
-              onClick={() => handleQuickSelect('recepcao', 'rec123')}
-              className="p-2 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded text-left transition-colors cursor-pointer"
-            >
-              <div className="font-semibold text-sky-400 text-[11px]">recepcao</div>
-              <div className="text-[10px] text-slate-400">Mariana (Recepção)</div>
-            </button>
+          {/* Formulário de Login */}
+          <form onSubmit={handleLogin} className="space-y-4 text-xs">
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1">Usuário:</label>
+              <div className="relative">
+                <User className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  required
+                  value={login}
+                  onChange={e => setLogin(e.target.value)}
+                  placeholder="admin"
+                  className="w-full bg-slate-950 border border-slate-700 focus:border-sky-500 rounded pl-9 pr-3 py-2 text-white placeholder-slate-600 outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1">Senha:</label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                <input
+                  type="password"
+                  required
+                  value={senha}
+                  onChange={e => setSenha(e.target.value)}
+                  placeholder="admin123"
+                  className="w-full bg-slate-950 border border-slate-700 focus:border-sky-500 rounded pl-9 pr-3 py-2 text-white placeholder-slate-600 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Botões Acessar e Sair no estilo clássico do NetBeans */}
+            <div className="flex gap-2 pt-2">
+              <button
+                type="submit"
+                disabled={remainingSeconds > 0}
+                className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white rounded font-bold text-xs transition-colors cursor-pointer shadow flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Acessar o Sistema</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLogin('admin');
+                  setSenha('admin123');
+                }}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Limpar
+              </button>
+            </div>
+          </form>
+
+          {/* Seletores Rápidos de Perfil */}
+          <div className="pt-3 border-t border-slate-800 space-y-2">
+            <span className="text-[11px] text-slate-400 font-semibold block">
+              Preenchimento rápido de credenciais de teste:
+            </span>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <button
+                type="button"
+                onClick={() => handleQuickSelect('admin', 'admin123')}
+                className="p-2 bg-slate-950 hover:bg-sky-950/40 border border-slate-800 hover:border-sky-500/50 rounded text-left transition-colors cursor-pointer"
+              >
+                <div className="font-bold text-sky-400">Administrador</div>
+                <div className="text-[10px] text-slate-400 font-mono">admin / admin123</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickSelect('medico.silva', 'medico123')}
+                className="p-2 bg-slate-950 hover:bg-sky-950/40 border border-slate-800 hover:border-sky-500/50 rounded text-left transition-colors cursor-pointer"
+              >
+                <div className="font-bold text-emerald-400">Médico</div>
+                <div className="text-[10px] text-slate-400 font-mono">medico.silva / medico123</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickSelect('enf.carla', 'enf123')}
+                className="p-2 bg-slate-950 hover:bg-sky-950/40 border border-slate-800 hover:border-sky-500/50 rounded text-left transition-colors cursor-pointer"
+              >
+                <div className="font-bold text-purple-400">Enfermeira</div>
+                <div className="text-[10px] text-slate-400 font-mono">enf.carla / enf123</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickSelect('recepcao', 'rec123')}
+                className="p-2 bg-slate-950 hover:bg-sky-950/40 border border-slate-800 hover:border-sky-500/50 rounded text-left transition-colors cursor-pointer"
+              >
+                <div className="font-bold text-amber-400">Recepção</div>
+                <div className="text-[10px] text-slate-400 font-mono">recepcao / rec123</div>
+              </button>
+            </div>
           </div>
         </div>
       </div>

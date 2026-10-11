@@ -1,24 +1,65 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+import sys
 
 block_cipher = None
 
+# Diretório base
+spec_dir = os.path.abspath(os.path.dirname('main.py') or '.')
+
 a = Analysis(
     ['main.py'],
-    pathex=['.'],
+    pathex=[spec_dir, os.path.dirname(spec_dir)],
     binaries=[],
     datas=[
         ('database/schema.sql', 'database'),
         ('database/v1_legacy_migration.sql', 'database'),
     ],
     hiddenimports=[
+        # Drivers e dependências
         'psycopg',
         'psycopg.pq',
         'psycopg_binary',
         'sqlite3',
         'dotenv',
+        'hashlib',
+        'hmac',
+        'secrets',
+        # Qt PySide6
+        'PySide6',
         'PySide6.QtCore',
         'PySide6.QtGui',
         'PySide6.QtWidgets',
+        # Módulos internos ClinEstudo
+        'config',
+        'config.settings',
+        'database',
+        'database.connection',
+        'database.migrations',
+        'modelo_beans',
+        'modelo_beans.beans',
+        'modelo_connection',
+        'modelo_connection.conexao_bd',
+        'modelo_dao',
+        'modelo_dao.daos',
+        'visao',
+        'visao.forms',
+        'services',
+        'services.services',
+        'services.validators',
+        'auth',
+        'auth.hasher',
+        'auth.permissions',
+        'auth.session',
+        'ui',
+        'ui.theme',
+        'ui.login_window',
+        'ui.main_window',
+        'ui.views',
+        'models',
+        'models.entities',
+        'repositories',
+        'repositories.repositories',
     ],
     hookspath=[],
     hooksconfig={},
@@ -42,7 +83,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,  # Sem janela preta de console (aplicação 100% gráfica desktop)
+    console=False,  # Sem janela de console (aplicação 100% desktop gráfica)
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

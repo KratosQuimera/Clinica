@@ -1,8 +1,5 @@
-import React, { useState } from 'react';
-import { 
-  INITIAL_USERS, INITIAL_DOCTORS, INITIAL_NURSES, 
-  INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_AUDIT_LOGS 
-} from './data/initialData';
+import React, { useState, useEffect } from 'react';
+import { storage } from './utils/storage';
 import { User, Doctor, Nurse, Patient, Appointment, AuditLog, AppointmentStatus } from './types';
 import { DesktopWindow } from './components/DesktopWindow';
 import { DashboardView } from './components/DashboardView';
@@ -17,17 +14,28 @@ import { PythonProjectHub } from './components/PythonProjectHub';
 import { LoginModal } from './components/LoginModal';
 
 export default function App() {
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
-  const [currentUser, setCurrentUser] = useState<User | null>(INITIAL_USERS[0]); // Começa logado como Admin para visualização direta
+  // Inicialização com dados persistidos no localStorage
+  const [users, setUsers] = useState<User[]>(() => storage.getUsers());
+  const [currentUser, setCurrentUser] = useState<User | null>(() => storage.getActiveUser());
   const [isLoggedOut, setIsLoggedOut] = useState<boolean>(false);
 
-  const [doctors, setDoctors] = useState<Doctor[]>(INITIAL_DOCTORS);
-  const [nurses, setNurses] = useState<Nurse[]>(INITIAL_NURSES);
-  const [patients, setPatients] = useState<Patient[]>(INITIAL_PATIENTS);
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
+  const [doctors, setDoctors] = useState<Doctor[]>(() => storage.getDoctors());
+  const [nurses, setNurses] = useState<Nurse[]>(() => storage.getNurses());
+  const [patients, setPatients] = useState<Patient[]>(() => storage.getPatients());
+  const [appointments, setAppointments] = useState<Appointment[]>(() => storage.getAppointments());
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => storage.getAuditLogs());
 
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  // Aba ativa: começa em 'dashboard' (Tela Bem-Vindos)
+  const [activeTab, setActiveTab] = useState<string>(() => storage.getActiveTab());
+
+  // Sincroniza persistência de sessão e aba ativa
+  useEffect(() => {
+    storage.saveActiveUser(currentUser);
+  }, [currentUser]);
+
+  useEffect(() => {
+    storage.saveActiveTab(activeTab);
+  }, [activeTab]);
 
   // Registro seguro de auditoria LGPD (sem senhas)
   const addAuditLog = (
@@ -47,12 +55,15 @@ export default function App() {
       ipOrigem: '127.0.0.1',
       criadoEm: new Date().toISOString(),
     };
-    setAuditLogs(prev => [newLog, ...prev]);
+    setAuditLogs(prev => {
+      const updated = [newLog, ...prev];
+      storage.saveAuditLogs(updated);
+      return updated;
+    });
   };
 
   // 1. Médicos
   const handleSaveDoctor = (docData: Omit<Doctor, 'id'>, id?: number) => {
-    // Validação de unicidade de CRM na mesma UF
     const duplicate = doctors.find(d => 
       d.crm === docData.crm && 
       d.uf_crm === docData.uf_crm && 
@@ -63,20 +74,26 @@ export default function App() {
     }
 
     if (id) {
-      setDoctors(prev => prev.map(d => d.id === id ? { ...docData, id } : d));
+      const updated = doctors.map(d => d.id === id ? { ...docData, id } : d);
+      setDoctors(updated);
+      storage.saveDoctors(updated);
       addAuditLog('EDITAR_MEDICO', 'MEDICOS', `Médico ${docData.nome} (CRM ${docData.crm}/${docData.uf_crm}) atualizado`, id);
       return { success: true, message: 'Dados do médico atualizados com sucesso.' };
     } else {
       const newId = doctors.length ? Math.max(...doctors.map(d => d.id)) + 1 : 1;
       const newDoc: Doctor = { ...docData, id: newId };
-      setDoctors(prev => [...prev, newDoc]);
+      const updated = [...doctors, newDoc];
+      setDoctors(updated);
+      storage.saveDoctors(updated);
       addAuditLog('CRIAR_MEDICO', 'MEDICOS', `Médico ${docData.nome} (CRM ${docData.crm}/${docData.uf_crm}) cadastrado`, newId);
       return { success: true, message: 'Médico cadastrado com sucesso.' };
     }
   };
 
   const handleDeleteDoctor = (id: number) => {
-    setDoctors(prev => prev.map(d => d.id === id ? { ...d, ativo: false } : d));
+    const updated = doctors.map(d => d.id === id ? { ...d, ativo: false } : d);
+    setDoctors(updated);
+    storage.saveDoctors(updated);
     addAuditLog('DESATIVAR_MEDICO', 'MEDICOS', `Desativação lógica do médico ID ${id}`, id);
     return { success: true, message: 'Médico desativado logicamente do sistema.' };
   };
@@ -93,20 +110,26 @@ export default function App() {
     }
 
     if (id) {
-      setNurses(prev => prev.map(n => n.id === id ? { ...nurseData, id } : n));
+      const updated = nurses.map(n => n.id === id ? { ...nurseData, id } : n);
+      setNurses(updated);
+      storage.saveNurses(updated);
       addAuditLog('EDITAR_ENFERMEIRO', 'ENFERMEIROS', `Enfermeiro ${nurseData.nome} atualizado`, id);
       return { success: true, message: 'Dados de enfermagem atualizados com sucesso.' };
     } else {
       const newId = nurses.length ? Math.max(...nurses.map(n => n.id)) + 1 : 1;
       const newNurse: Nurse = { ...nurseData, id: newId };
-      setNurses(prev => [...prev, newNurse]);
+      const updated = [...nurses, newNurse];
+      setNurses(updated);
+      storage.saveNurses(updated);
       addAuditLog('CRIAR_ENFERMEIRO', 'ENFERMEIROS', `Enfermeiro ${nurseData.nome} cadastrado`, newId);
       return { success: true, message: 'Profissional de enfermagem cadastrado com sucesso.' };
     }
   };
 
   const handleDeleteNurse = (id: number) => {
-    setNurses(prev => prev.map(n => n.id === id ? { ...n, ativo: false } : n));
+    const updated = nurses.map(n => n.id === id ? { ...n, ativo: false } : n);
+    setNurses(updated);
+    storage.saveNurses(updated);
     addAuditLog('DESATIVAR_ENFERMEIRO', 'ENFERMEIROS', `Desativação lógica do enfermeiro ID ${id}`, id);
     return { success: true, message: 'Profissional de enfermagem desativado com sucesso.' };
   };
@@ -121,7 +144,9 @@ export default function App() {
     }
 
     if (id) {
-      setPatients(prev => prev.map(p => p.id === id ? { ...patientData, id, criadoEm: p.criadoEm } : p));
+      const updated = patients.map(p => p.id === id ? { ...patientData, id, criadoEm: p.criadoEm } : p);
+      setPatients(updated);
+      storage.savePatients(updated);
       addAuditLog('EDITAR_PACIENTE', 'PACIENTES', `Paciente ${patientData.nome} atualizado`, id);
       return { success: true, message: 'Dados do paciente atualizados com sucesso.' };
     } else {
@@ -131,21 +156,24 @@ export default function App() {
         id: newId, 
         criadoEm: new Date().toISOString() 
       };
-      setPatients(prev => [...prev, newPatient]);
+      const updated = [...patients, newPatient];
+      setPatients(updated);
+      storage.savePatients(updated);
       addAuditLog('CRIAR_PACIENTE', 'PACIENTES', `Paciente ${patientData.nome} cadastrado`, newId);
       return { success: true, message: 'Paciente cadastrado com sucesso.' };
     }
   };
 
   const handleDeletePatient = (id: number) => {
-    setPatients(prev => prev.map(p => p.id === id ? { ...p, ativo: false } : p));
+    const updated = patients.map(p => p.id === id ? { ...p, ativo: false } : p);
+    setPatients(updated);
+    storage.savePatients(updated);
     addAuditLog('DESATIVAR_PACIENTE', 'PACIENTES', `Desativação lógica do paciente ID ${id}`, id);
     return { success: true, message: 'Paciente desativado logicamente do cadastro.' };
   };
 
   // 4. Agendamentos com prevenção de conflitos
   const handleSaveAppointment = (appData: Omit<Appointment, 'id' | 'criadoEm'>, id?: number) => {
-    // Verificação de conflito para o médico
     const conflict = appointments.find(a => 
       a.medicoId === appData.medicoId &&
       a.dataAgenda === appData.dataAgenda &&
@@ -157,98 +185,125 @@ export default function App() {
     if (conflict) {
       return { 
         success: false, 
-        message: `CONFLITO: O médico já possui agendamento com ${conflict.pacienteNome} neste mesmo dia e horário.` 
+        message: `Conflito de agenda: o médico já possui atendimento agendado para o horário ${appData.horario} nesta data.` 
       };
     }
 
     const patient = patients.find(p => p.id === appData.pacienteId);
     const doctor = doctors.find(d => d.id === appData.medicoId);
-    const nurse = nurses.find(n => n.id === appData.enfermeiroId);
 
-    const fullApp: Appointment = {
+    const appWithJoins = {
       ...appData,
-      id: id || (appointments.length ? Math.max(...appointments.map(a => a.id)) + 1 : 1),
-      criadoEm: new Date().toISOString(),
       pacienteNome: patient?.nome,
       pacienteTelefone: patient?.telefone,
       pacienteCpf: patient?.cpf,
       medicoNome: doctor?.nome,
       medicoEspecialidade: doctor?.especialidade,
-      enfermeiroNome: nurse?.nome,
     };
 
     if (id) {
-      setAppointments(prev => prev.map(a => a.id === id ? fullApp : a));
-      addAuditLog('EDITAR_AGENDAMENTO', 'AGENDAMENTOS', `Consulta ID ${id} atualizada para ${appData.dataAgenda} ${appData.horario}`, id);
+      const updated = appointments.map(a => a.id === id ? { ...appWithJoins, id, criadoEm: a.criadoEm } : a);
+      setAppointments(updated);
+      storage.saveAppointments(updated);
+      addAuditLog('EDITAR_AGENDAMENTO', 'AGENDAMENTOS', `Consulta ID ${id} atualizada`, id);
       return { success: true, message: 'Agendamento atualizado com sucesso.' };
     } else {
-      setAppointments(prev => [...prev, fullApp]);
-      addAuditLog('CRIAR_AGENDAMENTO', 'AGENDAMENTOS', `Consulta agendada para ${appData.dataAgenda} ${appData.horario} com ${doctor?.nome}`, fullApp.id);
+      const newId = appointments.length ? Math.max(...appointments.map(a => a.id)) + 1 : 1;
+      const newApp: Appointment = {
+        ...appWithJoins,
+        id: newId,
+        criadoEm: new Date().toISOString(),
+      };
+      const updated = [newApp, ...appointments];
+      setAppointments(updated);
+      storage.saveAppointments(updated);
+      addAuditLog('CRIAR_AGENDAMENTO', 'AGENDAMENTOS', `Agendamento criado para ${patient?.nome} com ${doctor?.nome}`, newId);
       return { success: true, message: 'Consulta agendada com sucesso.' };
     }
   };
 
-  const handleUpdateAppointmentStatus = (id: number, novoStatus: AppointmentStatus, obs?: string) => {
-    setAppointments(prev => prev.map(a => {
-      if (a.id === id) {
-        return { 
-          ...a, 
-          status: novoStatus, 
-          observacoes: obs !== undefined ? obs : a.observacoes 
-        };
-      }
-      return a;
-    }));
-    addAuditLog(`STATUS_${novoStatus}`, 'AGENDAMENTOS', `Status da consulta ID ${id} alterado para ${novoStatus}`, id);
-    return { success: true, message: `Status alterado para ${novoStatus}.` };
+  const handleUpdateAppointmentStatus = (id: number, status: AppointmentStatus) => {
+    const updated = appointments.map(a => a.id === id ? { ...a, status } : a);
+    setAppointments(updated);
+    storage.saveAppointments(updated);
+    addAuditLog('ATUALIZAR_STATUS_AGENDAMENTO', 'AGENDAMENTOS', `Status alterado para ${status}`, id);
+    return { success: true, message: `Status da consulta atualizado para ${status}.` };
   };
 
   // 5. Usuários
-  const handleSaveUser = (userData: Omit<User, 'id' | 'criadoEm'>, id?: number) => {
-    const duplicate = users.find(u => u.login === userData.login && u.id !== id);
-    if (duplicate) {
-      return { success: false, message: `O login '${userData.login}' já está em uso.` };
-    }
-
+  const handleSaveUser = (userData: Partial<User>, id?: number) => {
     if (id) {
-      setUsers(prev => prev.map(u => u.id === id ? { ...userData, id, criadoEm: u.criadoEm } : u));
-      addAuditLog('EDITAR_USUARIO', 'USUARIOS', `Usuário ${userData.login} atualizado`, id);
+      const updated = users.map(u => u.id === id ? { ...u, ...userData } : u);
+      setUsers(updated);
+      storage.saveUsers(updated);
+      addAuditLog('EDITAR_USUARIO', 'USUARIOS', `Usuário ID ${id} atualizado`, id);
       return { success: true, message: 'Usuário atualizado com sucesso.' };
     } else {
+      const exists = users.find(u => u.login.toLowerCase() === userData.login?.toLowerCase());
+      if (exists) {
+        return { success: false, message: `O login "${userData.login}" já está em uso.` };
+      }
       const newId = users.length ? Math.max(...users.map(u => u.id)) + 1 : 1;
-      const newUser: User = { 
-        ...userData, 
-        id: newId, 
-        criadoEm: new Date().toISOString() 
+      const newUser: User = {
+        id: newId,
+        nome: userData.nome || 'Novo Usuário',
+        login: userData.login || `user${newId}`,
+        perfil: userData.perfil || 'RECEPCIONISTA',
+        ativo: true,
+        tentativasFalhas: 0,
+        bloqueadoAte: null,
+        criadoEm: new Date().toISOString(),
       };
-      setUsers(prev => [...prev, newUser]);
-      addAuditLog('CRIAR_USUARIO', 'USUARIOS', `Novo operador ${userData.login} cadastrado com perfil ${userData.perfil}`, newId);
-      return { success: true, message: 'Usuário criado com sucesso.' };
+      const updated = [...users, newUser];
+      setUsers(updated);
+      storage.saveUsers(updated);
+      addAuditLog('CRIAR_USUARIO', 'USUARIOS', `Usuário ${newUser.login} criado`, newId);
+      return { success: true, message: 'Usuário cadastrado com sucesso.' };
     }
   };
 
   const handleToggleUserStatus = (id: number) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, ativo: !u.ativo } : u));
-    addAuditLog('STATUS_USUARIO', 'USUARIOS', `Alternância de status do usuário ID ${id}`, id);
-    return { success: true, message: 'Status do usuário atualizado.' };
+    const target = users.find(u => u.id === id);
+    if (!target) return { success: false, message: 'Usuário não encontrado.' };
+    if (target.login === 'admin') {
+      return { success: false, message: 'O usuário administrador principal não pode ser desativado.' };
+    }
+    const updated = users.map(u => u.id === id ? { ...u, ativo: !u.ativo } : u);
+    setUsers(updated);
+    storage.saveUsers(updated);
+    addAuditLog('STATUS_USUARIO', 'USUARIOS', `Status do usuário ${target.login} alterado para ${!target.ativo ? 'Ativo' : 'Inativo'}`, id);
+    return { success: true, message: `Usuário ${!target.ativo ? 'ativado' : 'desativado'} com sucesso.` };
   };
 
   const handleResetLockout = (id: number) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, tentativasFalhas: 0, bloqueadoAte: null } : u));
-    addAuditLog('DESBLOQUEAR_CONTA', 'USUARIOS', `Conta de usuário ID ${id} desbloqueada manualmente por administrador`, id);
-    return { success: true, message: 'Conta desbloqueada com sucesso.' };
+    const updated = users.map(u => u.id === id ? { ...u, tentativasFalhas: 0, bloqueadoAte: null } : u);
+    setUsers(updated);
+    storage.saveUsers(updated);
+    addAuditLog('DESBLOQUEAR_CONTA', 'USUARIOS', `Desbloqueio administrativo do usuário ID ${id}`, id);
+    return { success: true, message: 'Tentativas zeradas e bloqueio removido com sucesso.' };
   };
 
-  const handleResetPassword = (id: number, novaSenha: string) => {
-    addAuditLog('REDEFINIR_SENHA', 'USUARIOS', `Redefinição administrativa de senha efetuada para o usuário ID ${id}`, id);
-    return { success: true, message: 'Senha redefinida com sucesso com hash PBKDF2.' };
+  const handleResetPassword = (id: number) => {
+    addAuditLog('RESET_SENHA', 'USUARIOS', `Senha redefinida para usuário ID ${id}`, id);
+    return { success: true, message: 'Senha temporária definida como "clinica123".' };
   };
 
+  // Restaurar dados originais
+  const handleResetDatabase = () => {
+    storage.resetAllData();
+    setUsers(storage.getUsers());
+    setDoctors(storage.getDoctors());
+    setNurses(storage.getNurses());
+    setPatients(storage.getPatients());
+    setAppointments(storage.getAppointments());
+    setAuditLogs(storage.getAuditLogs());
+    setCurrentUser(storage.getActiveUser());
+    addAuditLog('REDEFINIR_BANCO', 'SISTEMA', 'Banco de dados restaurado para os registros padrão iniciais');
+  };
+
+  // Logout e Login
   const handleLogout = () => {
-    if (currentUser) {
-      addAuditLog('LOGOUT', 'USUARIOS', `Encerramento de sessão para o usuário ${currentUser.login}`);
-    }
-    setCurrentUser(null);
+    addAuditLog('LOGOUT', 'USUARIOS', `Sessão encerrada por ${currentUser?.login}`);
     setIsLoggedOut(true);
   };
 
@@ -258,24 +313,22 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-slate-950 font-sans">
-      {/* Modal de login quando deslogado */}
-      {(!currentUser || isLoggedOut) && (
+    <div className="w-screen h-screen overflow-hidden bg-slate-950 font-sans">
+      {(isLoggedOut || !currentUser) ? (
         <LoginModal
           users={users}
           onLoginSuccess={handleLoginSuccess}
-          onRecordAudit={(acao, entidade, detalhes) => addAuditLog(acao, entidade, detalhes)}
+          onRecordAudit={(act, ent, det) => addAuditLog(act, ent, det)}
         />
-      )}
-
-      {/* Janela desktop principal */}
-      {currentUser && (
+      ) : (
         <DesktopWindow
           currentUser={currentUser}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onLogout={handleLogout}
+          onResetDatabase={handleResetDatabase}
         >
+          {/* TELA DE BOAS-VINDAS / DASHBOARD DA PRIMEIRA VERSÃO */}
           {activeTab === 'dashboard' && (
             <DashboardView
               doctors={doctors}

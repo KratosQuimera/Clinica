@@ -60,10 +60,37 @@ O executável sem console será gerado em: dist\\ClinEstudo\\ClinEstudo.exe
       description: 'Ponto de entrada do sistema com inicialização de TelaLogin e TelaPrincipal.',
       content: `#!/usr/bin/env python3
 import sys
+import os
+import types
 import logging
-from clinestudo_desktop.config.settings import settings
-from clinestudo_desktop.database.migrations import init_database
-from clinestudo_desktop.database.connection import db_manager
+
+# ==============================================================================
+# BOOTSTRAP DE PATHS & ALIAS DE PACOTE (CORREÇÃO DE MODULENOTFOUNDERROR NO EXE)
+# Garante que imports absolutos e locais funcionem perfeitamente no PyInstaller
+# ==============================================================================
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(CURRENT_DIR)
+
+if CURRENT_DIR not in sys.path:
+    sys.path.insert(0, CURRENT_DIR)
+if PARENT_DIR not in sys.path:
+    sys.path.insert(0, PARENT_DIR)
+
+if "clinestudo_desktop" not in sys.modules:
+    clinestudo_pkg = types.ModuleType("clinestudo_desktop")
+    clinestudo_pkg.__path__ = [CURRENT_DIR]
+    clinestudo_pkg.__file__ = os.path.join(CURRENT_DIR, "__init__.py")
+    sys.modules["clinestudo_desktop"] = clinestudo_pkg
+# ==============================================================================
+
+try:
+    from clinestudo_desktop.config.settings import settings
+    from clinestudo_desktop.database.migrations import init_database
+    from clinestudo_desktop.database.connection import db_manager
+except ImportError:
+    from config.settings import settings
+    from database.migrations import init_database
+    from database.connection import db_manager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("clinestudo.main")
@@ -76,14 +103,18 @@ def main():
 
     try:
         from PySide6.QtWidgets import QApplication
-        from clinestudo_desktop.ui.login_window import LoginDialog
-        from clinestudo_desktop.visao.forms import TelaPrincipalNetBeans
+        try:
+            from clinestudo_desktop.ui.login_window import LoginDialog
+            from clinestudo_desktop.visao.forms import TelaPrincipalNetBeans
+        except ImportError:
+            from ui.login_window import LoginDialog
+            from visao.forms import TelaPrincipalNetBeans
 
         app = QApplication(sys.argv)
         app.setApplicationName(settings.APP_NAME)
         login_dlg = LoginDialog()
         if login_dlg.exec() == LoginDialog.Accepted:
-            u = login_dlg.usuario_autenticado
+            u = getattr(login_dlg, "usuario_autenticado", None) or {}
             janela = TelaPrincipalNetBeans(
                 usuario_login=u.get("login", "admin"),
                 perfil=u.get("perfil", "ADMINISTRADOR")
@@ -91,7 +122,7 @@ def main():
             janela.show()
             sys.exit(app.exec())
     except ImportError:
-        logger.warning("PySide6 ausente no ambiente headless. Executando em modo de diagnóstico.")
+        logger.warning("PySide6 ausente. Executando em modo de serviço de teste.")
 
 if __name__ == "__main__":
     main()
@@ -417,13 +448,18 @@ COMMIT;
 echo =======================================================
 echo  Iniciando geracao do executavel ClinEstudo Desktop
 echo =======================================================
+set "DIR_ATUAL=%~dp0"
+set "PYTHONPATH=%DIR_ATUAL%;%DIR_ATUAL%..;%PYTHONPATH%"
 pip install -r requirements.txt
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 pyinstaller --clean clinestudo.spec
-copy .env.example dist\\ClinEstudo\\.env.example >nul
-copy README.md dist\\ClinEstudo\\README.md >nul
-echo SUCESSO! Executavel gerado em: dist\\ClinEstudo\\ClinEstudo.exe
+if exist dist\\ClinEstudo (
+    copy .env.example dist\\ClinEstudo\\.env.example >nul 2>&1
+    copy README.md dist\\ClinEstudo\\README.md >nul 2>&1
+    echo.
+    echo SUCESSO! Executavel gerado em: dist\\ClinEstudo\\ClinEstudo.exe
+)
 pause
 `
     },
@@ -434,12 +470,24 @@ pause
       language: 'python',
       description: 'Configuração avançada do PyInstaller (modo windowed sem console).',
       content: `# -*- mode: python ; coding: utf-8 -*-
+import os, sys
+
+spec_dir = os.path.abspath(os.path.dirname('main.py') or '.')
+
 a = Analysis(
     ['main.py'],
-    pathex=['.'],
+    pathex=[spec_dir, os.path.dirname(spec_dir)],
     datas=[('database/schema.sql', 'database'), ('database/v1_legacy_migration.sql', 'database')],
-    hiddenimports=['psycopg', 'psycopg.pq', 'sqlite3', 'dotenv', 'PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets'],
-    console=False  # Sem janela de console (modo 100% desktop gráfico)
+    hiddenimports=[
+        'psycopg', 'sqlite3', 'dotenv', 'hashlib', 'hmac', 'secrets',
+        'PySide6', 'PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets',
+        'config', 'config.settings', 'database', 'database.connection', 'database.migrations',
+        'modelo_beans', 'modelo_beans.beans', 'modelo_connection', 'modelo_connection.conexao_bd',
+        'modelo_dao', 'modelo_dao.daos', 'visao', 'visao.forms', 'services', 'services.services',
+        'services.validators', 'auth', 'auth.hasher', 'auth.permissions', 'auth.session',
+        'ui', 'ui.theme', 'ui.login_window', 'ui.main_window', 'ui.views'
+    ],
+    console=False
 )
 exe = EXE(a.scripts, name='ClinEstudo', debug=False, console=False)
 `
