@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Users, Stethoscope, Calendar, Clock, CheckCircle2, 
   AlertCircle, Activity, ChevronRight, UserPlus, CalendarPlus, FileText,
-  UserCheck, Shield, Sparkles, Pill, MessageCircle, Printer
+  UserCheck, Shield, Sparkles, Pill, MessageCircle, Printer, Globe
 } from 'lucide-react';
 import { Doctor, Nurse, Patient, Appointment, User, Prescription } from '../types';
 
@@ -63,13 +63,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         <div className="relative z-10 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/80 pb-3">
-            <div>
-              <span className="text-[11px] font-mono tracking-wider text-sky-400 uppercase font-semibold">
-                Tela Bem-Vindos · ClinEstudo
-              </span>
-              <h1 className="text-xl font-bold text-white tracking-wide mt-0.5">
-                Sistema de Gerenciamento de: Consultas e Procedimentos Clínicos
-              </h1>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-sky-950/90 border border-sky-400/50 flex items-center justify-center shadow-[0_0_15px_rgba(56,189,248,0.25)] shrink-0">
+                <Globe className="w-6 h-6 text-sky-400 animate-spin" style={{ animationDuration: '20s' }} />
+              </div>
+              <div>
+                <span className="text-[11px] font-mono tracking-wider text-sky-400 uppercase font-semibold flex items-center gap-1.5">
+                  <span>Tela Bem-Vindos</span>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-emerald-400">Rede Global ClinEstudo</span>
+                </span>
+                <h1 className="text-xl font-bold text-white tracking-wide mt-0.5">
+                  Sistema de Gerenciamento de: Consultas e Procedimentos Clínicos
+                </h1>
+              </div>
             </div>
             <div className="text-xs text-slate-400 font-mono">
               Usuário: <span className="text-emerald-400 font-bold">{currentUser.login}</span> ({currentUser.perfil})

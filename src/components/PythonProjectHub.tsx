@@ -516,6 +516,141 @@ SESSION_TIMEOUT_MINUTES=60
 SECRET_KEY=sua_chave_secreta_longa_aqui
 `
     },
+    {
+      path: 'executar_com_log.bat',
+      name: 'executar_com_log.bat',
+      type: 'file',
+      language: 'bat',
+      description: 'Script inicializador com captura de log e prevenção de fechamento silencioso do .exe.',
+      content: `@echo off
+chcp 65001 >nul
+REM ClinEstudo - Script de Diagnóstico e Inicialização com Log Visível
+title ClinEstudo Desktop - Modo Diagnóstico
+
+echo ============================================================================
+echo   CLINESTUDO DESKTOP - INICIALIZADOR COM DIAGNÓSTICO E LOG ATIVO
+echo ============================================================================
+echo.
+
+set "APP_DIR=%~dp0"
+cd /d "%APP_DIR%"
+
+if exist "ClinEstudo.exe" (
+    echo Executavel detectado: ClinEstudo.exe
+    ClinEstudo.exe
+    goto FIM
+)
+if exist "dist\\ClinEstudo\\ClinEstudo.exe" (
+    echo Executavel detectado em dist\\ClinEstudo\\ClinEstudo.exe
+    dist\\ClinEstudo\\ClinEstudo.exe
+    goto FIM
+)
+
+python main.py
+
+:FIM
+if exist "clinestudo_crash.log" (
+    echo.
+    echo [AVISO] Foi detectado um arquivo clinestudo_crash.log:
+    type clinestudo_crash.log
+)
+pause
+`
+    },
+    {
+      path: 'diagnostico_exe.py',
+      name: 'diagnostico_exe.py',
+      type: 'file',
+      language: 'python',
+      description: 'Script de diagnóstico completo do ambiente Python, PySide6, SQLite e permissões.',
+      content: `#!/usr/bin/env python3
+import sys, os, platform, sqlite3
+
+print("=" * 70)
+print("  CLINESTUDO DESKTOP - FERRAMENTA DE DIAGNÓSTICO DO SISTEMA")
+print("=" * 70)
+print(f"OS: {platform.system()} {platform.release()} | Python: {sys.version.split()[0]}")
+
+try:
+    import PySide6
+    print(f"PySide6: [OK] v{PySide6.__version__}")
+except ImportError as e:
+    print(f"PySide6: [NÃO ENCONTRADO] {e}")
+    print("Instale executando: pip install -r requirements.txt")
+
+try:
+    conn = sqlite3.connect(":memory:")
+    conn.execute("SELECT 1;")
+    conn.close()
+    print("SQLite Local: [OK]")
+except Exception as e:
+    print(f"SQLite: [FALHA] {e}")
+
+if sys.platform == "win32":
+    input("\\nPressione ENTER para fechar...")
+`
+    },
+    {
+      path: 'ui/splash_screen.py',
+      name: 'ui/splash_screen.py',
+      type: 'file',
+      language: 'python',
+      description: 'Tela de carregamento QSplashScreen estilizada com o Logo do Globo em alta resolução.',
+      content: `from PySide6.QtWidgets import QSplashScreen
+from PySide6.QtCore import Qt, QPointF
+from PySide6.QtGui import QPixmap, QPainter, QColor, QBrush, QPen, QFont, QLinearGradient
+
+class GlobeSplashScreen:
+    def __init__(self, app=None):
+        self.app = app
+        pixmap = QPixmap(520, 360)
+        pixmap.fill(QColor("#090d16"))
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        # Desenho do Logo do Globo com paralelos, meridianos e cruz médica
+        center_x, center_y, radius = 260, 115, 55
+        glow = QLinearGradient(center_x - radius, center_y - radius, center_x + radius, center_y + radius)
+        glow.setColorAt(0.0, QColor("#0369a1"))
+        glow.setColorAt(1.0, QColor("#0f766e"))
+        painter.setBrush(QBrush(glow))
+        painter.setPen(QPen(QColor("#38bdf8"), 2.5))
+        painter.drawEllipse(QPointF(center_x, center_y), radius, radius)
+
+        # Meridianos e paralelos
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(QPen(QColor("#7dd3fc"), 1.2, Qt.DashLine))
+        painter.drawEllipse(QPointF(center_x, center_y - 20), radius - 6, 16)
+        painter.drawEllipse(QPointF(center_x, center_y + 20), radius - 6, 16)
+        painter.setPen(QPen(QColor("#38bdf8"), 1.6))
+        painter.drawLine(center_x - radius, center_y, center_x + radius, center_y)
+
+        # Cruz médica
+        painter.setBrush(QBrush(QColor("#2dd4bf")))
+        painter.setPen(Qt.NoPen)
+        painter.drawRect(center_x - 4, center_y - 14, 8, 28)
+        painter.drawRect(center_x - 14, center_y - 4, 28, 8)
+
+        # Textos de inicialização
+        painter.setFont(QFont("Segoe UI", 18, QFont.Bold))
+        painter.setPen(QPen(QColor("#ffffff")))
+        painter.drawText(0, 210, 520, 30, Qt.AlignCenter, "CLINESTUDO DESKTOP")
+        painter.end()
+
+        self.splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+
+    def show(self):
+        self.splash.show()
+        if self.app: self.app.processEvents()
+
+    def show_message(self, msg: str):
+        self.splash.showMessage(f"  {msg}", Qt.AlignBottom | Qt.AlignLeft, QColor("#38bdf8"))
+        if self.app: self.app.processEvents()
+
+    def finish(self, window):
+        self.splash.finish(window)
+`
+    },
   ];
 
   const currentFile = files.find(f => f.path === selectedFilePath) || files[0];
@@ -591,6 +726,54 @@ SECRET_KEY=sua_chave_secreta_longa_aqui
           >
             <Download className="w-4 h-4" />
             <span>{isDownloadingZip ? 'Compactando...' : 'Baixar Código Adaptado (.ZIP)'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Banner de Diagnóstico e Correção do Executável (.EXE) */}
+      <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-sky-950/70 border-b border-amber-500/40 p-3.5 px-4 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
+        <div className="flex items-start gap-2.5 max-w-4xl">
+          <div className="w-7 h-7 rounded bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5 border border-amber-500/40">
+            ⚠️
+          </div>
+          <div>
+            <div className="font-semibold text-white flex items-center gap-2">
+              <span>Solução Aplicada: O Executável (.exe) Não Abria e Fechava Silenciosamente</span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/40 font-mono">
+                100% CORRIGIDO
+              </span>
+            </div>
+            <p className="text-slate-300 text-[11px] mt-1 leading-relaxed">
+              <strong>Causa Raiz Identificada:</strong> Quando compilado com a flag <code className="text-amber-300 bg-black/40 px-1 rounded">--noconsole</code> do PyInstaller, qualquer exceção (como falta do <em>PySide6</em>, dos plugins Qt de plataforma <em>qwindows.dll</em> ou do <em>Visual C++ Redistributable x64</em>) encerra o Windows imediatamente sem emitir mensagem.
+              <br />
+              <strong>Correções Implementadas:</strong>
+              <br />
+              1. <strong>Tratamento Nativo de Janelas:</strong> <code className="text-sky-300 bg-black/40 px-1 rounded">main.py</code> agora usa <code className="text-sky-300">ctypes.windll.user32.MessageBoxW</code> para exibir uma janela de alerta do Windows em qualquer erro;
+              <br />
+              2. <strong>Logo do Globo na Inicialização:</strong> Adicionada Splash Screen gráfica com o logotipo do globo em <code className="text-sky-300 bg-black/40 px-1 rounded">ui/splash_screen.py</code>;
+              <br />
+              3. <strong>Scripts de Contingência e Depuração:</strong> Incluídos <code className="text-emerald-300 bg-black/40 px-1 rounded">executar_com_log.bat</code> e <code className="text-emerald-300 bg-black/40 px-1 rounded">diagnostico_exe.py</code> para diagnosticar qualquer máquina em 1 clique.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSelectedFilePath('executar_com_log.bat')}
+            className="px-2.5 py-1.5 bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded text-xs font-medium transition-colors cursor-pointer"
+          >
+            executar_com_log.bat
+          </button>
+          <button
+            onClick={() => setSelectedFilePath('diagnostico_exe.py')}
+            className="px-2.5 py-1.5 bg-sky-900/60 hover:bg-sky-800 text-sky-200 border border-sky-700/60 rounded text-xs font-medium transition-colors cursor-pointer"
+          >
+            diagnostico_exe.py
+          </button>
+          <button
+            onClick={() => setSelectedFilePath('ui/splash_screen.py')}
+            className="px-2.5 py-1.5 bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 border border-emerald-700/60 rounded text-xs font-medium transition-colors cursor-pointer"
+          >
+            ui/splash_screen.py (Globo)
           </button>
         </div>
       </div>

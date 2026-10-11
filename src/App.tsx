@@ -14,8 +14,12 @@ import { ReportsView } from './components/ReportsView';
 import { AuditView } from './components/AuditView';
 import { PythonProjectHub } from './components/PythonProjectHub';
 import { LoginModal } from './components/LoginModal';
+import { StartupGlobeSplash } from './components/StartupGlobeSplash';
 
 export default function App() {
+  // Tela de Inicialização com Logo do Globo (solicitada pelo usuário)
+  const [showStartupSplash, setShowStartupSplash] = useState<boolean>(true);
+
   // Inicialização com dados persistidos no localStorage
   const [users, setUsers] = useState<User[]>(() => storage.getUsers());
   const [currentUser, setCurrentUser] = useState<User | null>(() => storage.getActiveUser());
@@ -399,6 +403,11 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-slate-950 font-sans">
+      {/* TELA DE INICIALIZAÇÃO COM LOGO DO GLOBO (BOOT / SPLASH) */}
+      {showStartupSplash && (
+        <StartupGlobeSplash onComplete={() => setShowStartupSplash(false)} />
+      )}
+
       {(isLoggedOut || !currentUser) ? (
         <LoginModal
           users={users}
@@ -412,6 +421,7 @@ export default function App() {
           onTabChange={setActiveTab}
           onLogout={handleLogout}
           onResetDatabase={handleResetDatabase}
+          onShowGlobeSplash={() => setShowStartupSplash(true)}
         >
           {/* TELA DE BOAS-VINDAS / DASHBOARD DA PRIMEIRA VERSÃO */}
           {activeTab === 'dashboard' && (

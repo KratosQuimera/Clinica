@@ -47,10 +47,14 @@ echo [4/4] Preparando pacote final de distribuicao...
 if exist dist\ClinEstudo (
     copy .env.example dist\ClinEstudo\.env.example >nul 2>&1
     copy README.md dist\ClinEstudo\README.md >nul 2>&1
+    copy executar_com_log.bat dist\ClinEstudo\executar_com_log.bat >nul 2>&1
+    copy diagnostico_exe.py dist\ClinEstudo\diagnostico_exe.py >nul 2>&1
     echo.
     echo =======================================================
-    echo  SUCESSO! O executavel foi gerado em:
-    echo  dist\ClinEstudo\ClinEstudo.exe
+    echo  SUCESSO! Pacote compilado gerado com sucesso:
+    echo  - dist\ClinEstudo\ClinEstudo.exe (Executavel Oficial)
+    echo  - dist\ClinEstudo\ClinEstudo_Debug.exe (Modo Console)
+    echo  - dist\ClinEstudo\executar_com_log.bat (Launcher Diagnostico)
     echo =======================================================
 ) else (
     echo [ERRO] Pasta dist\ClinEstudo nao encontrada.

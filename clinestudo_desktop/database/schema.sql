@@ -117,8 +117,8 @@ CREATE TABLE IF NOT EXISTS auditoria (
     id SERIAL PRIMARY KEY,
     usuario_id INT NULL REFERENCES usuarios(id) ON DELETE SET NULL,
     login_usuario VARCHAR(50) NOT NULL,
-    acao VARCHAR(40) NOT NULL, -- 'LOGIN', 'LOGOUT', 'LOGIN_FALHA', 'CRIAR', 'EDITAR', 'EXCLUIR_LOGICO', 'CANCELAR_AGENDA'
-    entidade VARCHAR(50) NOT NULL, -- 'USUARIOS', 'MEDICOS', 'ENFERMEIROS', 'PACIENTES', 'AGENDAMENTOS'
+    acao VARCHAR(40) NOT NULL,
+    entidade VARCHAR(50) NOT NULL,
     registro_id INT NULL,
     detalhes TEXT,
     ip_origem VARCHAR(45) DEFAULT '127.0.0.1',
@@ -128,3 +128,24 @@ CREATE TABLE IF NOT EXISTS auditoria (
 CREATE INDEX IF NOT EXISTS idx_auditoria_usuario ON auditoria(login_usuario);
 CREATE INDEX IF NOT EXISTS idx_auditoria_acao ON auditoria(acao);
 CREATE INDEX IF NOT EXISTS idx_auditoria_criado_em ON auditoria(criado_em);
+
+-- 7. TABELA DE RECEITAS MÉDICAS, PRESCRIÇÕES, QR CODE E WHATSAPP
+CREATE TABLE IF NOT EXISTS receitas (
+    id SERIAL PRIMARY KEY,
+    paciente_id INT NOT NULL REFERENCES pacientes(id) ON DELETE CASCADE,
+    medico_id INT NOT NULL REFERENCES medicos(id) ON DELETE RESTRICT,
+    codigo_autenticidade VARCHAR(50) UNIQUE NOT NULL,
+    data_emissao VARCHAR(20) NOT NULL,
+    hora_emissao VARCHAR(10) NOT NULL,
+    validade_dias INT NOT NULL DEFAULT 30,
+    medicamentos_json TEXT NOT NULL,
+    orientacoes_gerais TEXT,
+    enviado_whatsapp BOOLEAN NOT NULL DEFAULT FALSE,
+    impresso BOOLEAN NOT NULL DEFAULT FALSE,
+    criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_receitas_paciente ON receitas(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_receitas_medico ON receitas(medico_id);
+CREATE INDEX IF NOT EXISTS idx_receitas_codigo ON receitas(codigo_autenticidade);
+

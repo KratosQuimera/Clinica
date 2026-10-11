@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, User, AlertTriangle, CheckCircle2, Key, Info, Check } from 'lucide-react';
+import { Shield, Lock, User, AlertTriangle, CheckCircle2, Key, Info, Check, Globe } from 'lucide-react';
 import { User as AppUser } from '../types';
 
 interface LoginModalProps {
@@ -112,7 +112,21 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           <span className="text-[10px] text-sky-200 font-mono">v2.4.0</span>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-4">
+          {/* Logo do Globo na Inicialização do Login */}
+          <div className="flex items-center justify-center gap-3 py-1 bg-slate-950/40 rounded-lg p-2.5 border border-slate-800">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-sky-950 to-slate-900 border border-sky-400/50 flex items-center justify-center shadow-[0_0_15px_rgba(56,189,248,0.3)]">
+              <Globe className="w-5 h-5 text-sky-400 animate-spin" style={{ animationDuration: '16s' }} />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white tracking-wide flex items-center gap-1.5">
+                <span>ClinEstudo</span>
+                <span className="text-sky-400 text-xs font-mono">Global Health</span>
+              </div>
+              <div className="text-[11px] text-slate-400">Sistema Hospitalar & Prescrições Digitais</div>
+            </div>
+          </div>
+
           {/* Caixa de destaque da Senha do Administrador */}
           <div className="p-3 bg-sky-950/80 border border-sky-500/40 rounded-lg space-y-1.5">
             <div className="flex items-center gap-1.5 text-sky-300 font-bold text-xs">

@@ -93,6 +93,21 @@ CREATE TABLE IF NOT EXISTS auditoria (
     ip_origem TEXT DEFAULT '127.0.0.1',
     criado_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
+
+CREATE TABLE IF NOT EXISTS receitas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    paciente_id INTEGER NOT NULL REFERENCES pacientes(id),
+    medico_id INTEGER NOT NULL REFERENCES medicos(id),
+    codigo_autenticidade TEXT UNIQUE NOT NULL,
+    data_emissao TEXT NOT NULL,
+    hora_emissao TEXT NOT NULL,
+    validade_dias INTEGER NOT NULL DEFAULT 30,
+    medicamentos_json TEXT NOT NULL,
+    orientacoes_gerais TEXT,
+    enviado_whatsapp INTEGER NOT NULL DEFAULT 0,
+    impresso INTEGER NOT NULL DEFAULT 0,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
 """
 
 def init_database() -> bool:
