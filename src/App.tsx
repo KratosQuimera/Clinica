@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from './utils/storage';
-import { User, Doctor, Nurse, Patient, Appointment, AuditLog, AppointmentStatus, Prescription } from './types';
+import { User, Doctor, Nurse, Patient, Appointment, AuditLog, AppointmentStatus, Prescription, Atendimento } from './types';
 import { DesktopWindow } from './components/DesktopWindow';
 import { DashboardView } from './components/DashboardView';
 import { DoctorsView } from './components/DoctorsView';
@@ -9,6 +9,7 @@ import { PatientsView } from './components/PatientsView';
 import { ScheduleView } from './components/ScheduleView';
 import { PrescriptionsView } from './components/PrescriptionsView';
 import { PrescriptionModal } from './components/PrescriptionModal';
+import { AtendimentoView } from './components/AtendimentoView';
 import { UsersView } from './components/UsersView';
 import { ReportsView } from './components/ReportsView';
 import { AuditView } from './components/AuditView';
@@ -30,6 +31,7 @@ export default function App() {
   const [patients, setPatients] = useState<Patient[]>(() => storage.getPatients());
   const [appointments, setAppointments] = useState<Appointment[]>(() => storage.getAppointments());
   const [prescriptions, setPrescriptions] = useState<Prescription[]>(() => storage.getPrescriptions());
+  const [atendimentos, setAtendimentos] = useState<Atendimento[]>(() => storage.getAtendimentos());
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => storage.getAuditLogs());
 
   // Aba ativa: começa em 'dashboard' (Tela Bem-Vindos)
@@ -40,6 +42,9 @@ export default function App() {
   const [prescriptionInitialPatientId, setPrescriptionInitialPatientId] = useState<number | undefined>(undefined);
   const [prescriptionInitialDoctorId, setPrescriptionInitialDoctorId] = useState<number | undefined>(undefined);
   const [existingPrescriptionToView, setExistingPrescriptionToView] = useState<Prescription | null>(null);
+
+  // Estado para abrir Atendimento com paciente pré-selecionado
+  const [atendimentoInitialPatientId, setAtendimentoInitialPatientId] = useState<number | undefined>(undefined);
 
   // Sincroniza persistência de sessão e aba ativa
   useEffect(() => {
@@ -259,6 +264,14 @@ export default function App() {
   };
 
   const handleSavePrescription = (prescData: Omit<Prescription, 'id' | 'criadoEm'>, id?: number) => {
+    // Regra explícita: somente administradores e médicos alteram receitas
+    if (currentUser?.perfil !== 'ADMINISTRADOR' && currentUser?.perfil !== 'MEDICO') {
+      return { 
+        success: false, 
+        message: 'Acesso Restrito: Somente administradores e médicos possuem autorização legal para prescrever ou alterar receitas médicas.' 
+      };
+    }
+
     if (id) {
       const updated = prescriptions.map(p => p.id === id ? { ...prescData, id, criadoEm: p.criadoEm } : p);
       setPrescriptions(updated);
@@ -279,6 +292,65 @@ export default function App() {
       addAuditLog('CRIAR_RECEITA', 'RECEITAS', `Receita ${prescData.codigoAutenticidade} emitida para ${prescData.pacienteNome} por ${prescData.medicoNome} (${prescData.medicamentos.length} medicamentos)`, newId);
       return { success: true, message: 'Receita médica prescrita e arquivada com sucesso no cadastro do paciente!', prescription: newPresc };
     }
+  };
+
+  // 6. ATENDIMENTO MÉDICO (PRONTUÁRIO CLÍNICO)
+  // Regra explícita: somente os médicos poderão alterar chamado atendimento
+  const handleSaveAtendimento = (atendData: Omit<Atendimento, 'id' | 'criadoEm'>, id?: number) => {
+    if (currentUser?.perfil !== 'MEDICO') {
+      return { 
+        success: false, 
+        message: 'Acesso Restrito: Somente médicos possuem autorização para registrar ou alterar atendimentos clínicos.' 
+      };
+    }
+
+    const patient = patients.find(p => p.id === atendData.pacienteId);
+    const doctor = doctors.find(d => d.id === atendData.medicoId);
+
+    const atendWithJoins: Omit<Atendimento, 'id' | 'criadoEm'> = {
+      ...atendData,
+      pacienteNome: patient?.nome || atendData.pacienteNome,
+      pacienteCpf: patient?.cpf || atendData.pacienteCpf,
+      pacienteTelefone: patient?.telefone || atendData.pacienteTelefone,
+      pacienteDataNascimento: patient?.dataNascimento || atendData.pacienteDataNascimento,
+      pacienteAlergias: patient?.alergias || atendData.pacienteAlergias,
+      pacienteConvenio: patient?.convenio || atendData.pacienteConvenio,
+      medicoNome: doctor?.nome || atendData.medicoNome,
+      medicoCrm: doctor?.crm || atendData.medicoCrm,
+      medicoUfCrm: doctor?.uf_crm || atendData.medicoUfCrm,
+      medicoEspecialidade: doctor?.especialidade || atendData.medicoEspecialidade,
+    };
+
+    if (id) {
+      const updated = atendimentos.map(a => a.id === id ? { 
+        ...atendWithJoins, 
+        id, 
+        criadoEm: a.criadoEm, 
+        atualizadoEm: new Date().toISOString() 
+      } : a);
+      setAtendimentos(updated);
+      storage.saveAtendimentos(updated);
+      addAuditLog('EDITAR_ATENDIMENTO', 'ATENDIMENTOS', `Atendimento ID ${id} atualizado para o paciente ${patient?.nome}`, id);
+      const saved = updated.find(a => a.id === id);
+      return { success: true, message: 'Atendimento clínico atualizado com sucesso no prontuário.', atendimento: saved };
+    } else {
+      const newId = atendimentos.length ? Math.max(...atendimentos.map(a => a.id)) + 1 : 1;
+      const newAtend: Atendimento = {
+        ...atendWithJoins,
+        id: newId,
+        criadoEm: new Date().toISOString(),
+      };
+      const updated = [newAtend, ...atendimentos];
+      setAtendimentos(updated);
+      storage.saveAtendimentos(updated);
+      addAuditLog('CRIAR_ATENDIMENTO', 'ATENDIMENTOS', `Atendimento clínico registrado para ${patient?.nome} pelo Dr(a). ${doctor?.nome} (CID: ${atendData.cid10 || 'N/A'})`, newId);
+      return { success: true, message: 'Atendimento clínico salvo com sucesso no prontuário do paciente!', atendimento: newAtend };
+    }
+  };
+
+  const handleOpenAtendimento = (patientId?: number) => {
+    setAtendimentoInitialPatientId(patientId);
+    setActiveTab('atendimentos');
   };
 
   const handleSendWhatsAppPrescription = (prescription: Prescription) => {
@@ -385,6 +457,7 @@ export default function App() {
     setPatients(storage.getPatients());
     setAppointments(storage.getAppointments());
     setPrescriptions(storage.getPrescriptions());
+    setAtendimentos(storage.getAtendimentos());
     setAuditLogs(storage.getAuditLogs());
     setCurrentUser(storage.getActiveUser());
     addAuditLog('REDEFINIR_BANCO', 'SISTEMA', 'Banco de dados restaurado para os registros padrão iniciais');
@@ -431,6 +504,7 @@ export default function App() {
               patients={patients}
               appointments={appointments}
               prescriptions={prescriptions}
+              atendimentos={atendimentos}
               currentUser={currentUser}
               onNavigate={setActiveTab}
               onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
@@ -469,6 +543,7 @@ export default function App() {
               onOpenCreatePrescription={handleOpenCreatePrescription}
               onOpenViewPrescription={handleOpenViewPrescription}
               onSendWhatsAppPrescription={handleSendWhatsAppPrescription}
+              onOpenAtendimento={handleOpenAtendimento}
             />
           )}
 
@@ -482,6 +557,22 @@ export default function App() {
               onSaveAppointment={handleSaveAppointment}
               onUpdateStatus={handleUpdateAppointmentStatus}
               onOpenCreatePrescription={handleOpenCreatePrescription}
+              onOpenAtendimento={handleOpenAtendimento}
+            />
+          )}
+
+          {activeTab === 'atendimentos' && (
+            <AtendimentoView
+              atendimentos={atendimentos}
+              patients={patients}
+              doctors={doctors}
+              prescriptions={prescriptions}
+              currentUser={currentUser}
+              onSaveAtendimento={handleSaveAtendimento}
+              onOpenCreatePrescription={handleOpenCreatePrescription}
+              onOpenViewPrescription={handleOpenViewPrescription}
+              onSendWhatsAppPrescription={handleSendWhatsAppPrescription}
+              initialPatientId={atendimentoInitialPatientId}
             />
           )}
 

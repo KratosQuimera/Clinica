@@ -1,6 +1,10 @@
 from typing import List, Optional, Dict, Any
-from clinestudo_desktop.database.connection import db_manager
-from clinestudo_desktop.models.entities import Usuario, Medico, Enfermeiro, Paciente, Agendamento, Auditoria
+try:
+    from database.connection import db_manager
+    from models.entities import Usuario, Medico, Enfermeiro, Paciente, Agendamento, Auditoria, Receita, Atendimento
+except ImportError:
+    from clinestudo_desktop.database.connection import db_manager
+    from clinestudo_desktop.models.entities import Usuario, Medico, Enfermeiro, Paciente, Agendamento, Auditoria, Receita, Atendimento
 
 class UsuarioRepository:
     def buscar_por_login(self, login: str) -> Optional[Dict[str, Any]]:
@@ -89,6 +93,9 @@ class MedicoRepository:
     def excluir_logico(self, medico_id: int) -> int:
         return db_manager.execute_mutation("UPDATE medicos SET ativo = 0 WHERE id = %s", (medico_id,))
 
+    def listar_todos(self) -> List[Dict[str, Any]]:
+        return self.listar(apenas_ativos=False)
+
 class EnfermeiroRepository:
     def listar(self, apenas_ativos: bool = True, termo_busca: str = "") -> List[Dict[str, Any]]:
         sql = "SELECT * FROM enfermeiros WHERE 1=1"
@@ -101,6 +108,9 @@ class EnfermeiroRepository:
             params.extend([termo, termo, termo])
         sql += " ORDER BY nome ASC"
         return db_manager.execute_query(sql, tuple(params))
+
+    def listar_todos(self) -> List[Dict[str, Any]]:
+        return self.listar(apenas_ativos=False)
 
     def buscar_por_id(self, enfermeiro_id: int) -> Optional[Dict[str, Any]]:
         rows = db_manager.execute_query("SELECT * FROM enfermeiros WHERE id = %s", (enfermeiro_id,))
@@ -137,6 +147,9 @@ class PacienteRepository:
             params.extend([termo, termo, termo])
         sql += " ORDER BY nome ASC"
         return db_manager.execute_query(sql, tuple(params))
+
+    def listar_todos(self) -> List[Dict[str, Any]]:
+        return self.listar(apenas_ativos=False)
 
     def buscar_por_id(self, paciente_id: int) -> Optional[Dict[str, Any]]:
         rows = db_manager.execute_query("SELECT * FROM pacientes WHERE id = %s", (paciente_id,))
@@ -236,3 +249,134 @@ class AuditoriaRepository:
         sql += " ORDER BY id DESC LIMIT %s"
         params.append(limite)
         return db_manager.execute_query(sql, tuple(params))
+
+class ReceitaRepository:
+    def criar(self, r: Receita) -> int:
+        return db_manager.execute_mutation(
+            """INSERT INTO receitas (
+                paciente_id, medico_id, codigo_autenticidade,
+                data_emissao, hora_emissao, validade_dias,
+                medicamentos_json, orientacoes_gerais,
+                enviado_whatsapp, impresso
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (
+                r.paciente_id, r.medico_id, r.codigo_autenticidade,
+                r.data_emissao, r.hora_emissao, r.validade_dias,
+                r.medicamentos_json, r.orientacoes_gerais,
+                1 if r.enviado_whatsapp else 0, 1 if r.impresso else 0
+            )
+        )
+
+    def listar_todas(self, paciente_id: Optional[int] = None, medico_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        sql = """
+            SELECT r.*, p.nome as nome_paciente, p.cpf as cpf_paciente,
+                   m.nome as nome_medico, m.crm as crm_medico, m.especialidade as especialidade_medico
+            FROM receitas r
+            JOIN pacientes p ON r.paciente_id = p.id
+            JOIN medicos m ON r.medico_id = m.id
+            WHERE 1=1
+        """
+        params = []
+        if paciente_id:
+            sql += " AND r.paciente_id = %s"
+            params.append(paciente_id)
+        if medico_id:
+            sql += " AND r.medico_id = %s"
+            params.append(medico_id)
+        sql += " ORDER BY r.id DESC"
+        return db_manager.execute_query(sql, tuple(params))
+
+    def buscar_por_codigo(self, codigo: str) -> Optional[Dict[str, Any]]:
+        sql = """
+            SELECT r.*, p.nome as nome_paciente, p.cpf as cpf_paciente,
+                   m.nome as nome_medico, m.crm as crm_medico
+            FROM receitas r
+            JOIN pacientes p ON r.paciente_id = p.id
+            JOIN medicos m ON r.medico_id = m.id
+            WHERE r.codigo_autenticidade = %s
+        """
+        rows = db_manager.execute_query(sql, (codigo,))
+        return rows[0] if rows else None
+
+    def marcar_enviado_whatsapp(self, receita_id: int) -> int:
+        return db_manager.execute_mutation(
+            "UPDATE receitas SET enviado_whatsapp = 1 WHERE id = %s",
+            (receita_id,)
+        )
+
+    def marcar_impresso(self, receita_id: int) -> int:
+        return db_manager.execute_mutation(
+            "UPDATE receitas SET impresso = 1 WHERE id = %s",
+            (receita_id,)
+        )
+
+class AtendimentoRepository:
+    def criar(self, a: Atendimento) -> int:
+        return db_manager.execute_mutation(
+            """INSERT INTO atendimentos (
+                paciente_id, medico_id, agendamento_id, data_hora, status,
+                motivo_consulta, queixa_principal, anamnese, historico_familiar_social,
+                sinais_vitais_json, exame_fisico, hipotese_diagnostica, cid10,
+                conduta_evolucao, prescricoes_ids_json, retorno_em_dias, observacoes_retorno
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (
+                a.paciente_id, a.medico_id, a.agendamento_id, a.data_hora, a.status,
+                a.motivo_consulta, a.queixa_principal, a.anamnese, a.historico_familiar_social,
+                a.sinais_vitais_json, a.exame_fisico, a.hipotese_diagnostica, a.cid10,
+                a.conduta_evolucao, a.prescricoes_ids_json, a.retorno_em_dias, a.observacoes_retorno
+            )
+        )
+
+    def atualizar(self, a: Atendimento) -> int:
+        return db_manager.execute_mutation(
+            """UPDATE atendimentos SET
+                status = %s, motivo_consulta = %s, queixa_principal = %s,
+                anamnese = %s, historico_familiar_social = %s, sinais_vitais_json = %s,
+                exame_fisico = %s, hipotese_diagnostica = %s, cid10 = %s,
+                conduta_evolucao = %s, prescricoes_ids_json = %s, retorno_em_dias = %s,
+                observacoes_retorno = %s
+            WHERE id = %s""",
+            (
+                a.status, a.motivo_consulta, a.queixa_principal,
+                a.anamnese, a.historico_familiar_social, a.sinais_vitais_json,
+                a.exame_fisico, a.hipotese_diagnostica, a.cid10,
+                a.conduta_evolucao, a.prescricoes_ids_json, a.retorno_em_dias,
+                a.observacoes_retorno, a.id
+            )
+        )
+
+    def listar_por_paciente(self, paciente_id: int) -> List[Dict[str, Any]]:
+        sql = """
+            SELECT a.*, p.nome as nome_paciente, p.cpf as cpf_paciente, p.alergias as alergias_paciente,
+                   m.nome as nome_medico, m.crm as crm_medico, m.especialidade as especialidade_medico
+            FROM atendimentos a
+            JOIN pacientes p ON a.paciente_id = p.id
+            JOIN medicos m ON a.medico_id = m.id
+            WHERE a.paciente_id = %s
+            ORDER BY a.id DESC
+        """
+        return db_manager.execute_query(sql, (paciente_id,))
+
+    def listar_todos(self) -> List[Dict[str, Any]]:
+        sql = """
+            SELECT a.*, p.nome as nome_paciente, p.cpf as cpf_paciente, p.alergias as alergias_paciente,
+                   m.nome as nome_medico, m.crm as crm_medico, m.especialidade as especialidade_medico
+            FROM atendimentos a
+            JOIN pacientes p ON a.paciente_id = p.id
+            JOIN medicos m ON a.medico_id = m.id
+            ORDER BY a.id DESC
+        """
+        return db_manager.execute_query(sql)
+
+    def buscar_por_id(self, atendimento_id: int) -> Optional[Dict[str, Any]]:
+        sql = """
+            SELECT a.*, p.nome as nome_paciente, p.cpf as cpf_paciente, p.alergias as alergias_paciente,
+                   m.nome as nome_medico, m.crm as crm_medico, m.especialidade as especialidade_medico
+            FROM atendimentos a
+            JOIN pacientes p ON a.paciente_id = p.id
+            JOIN medicos m ON a.medico_id = m.id
+            WHERE a.id = %s
+        """
+        rows = db_manager.execute_query(sql, (atendimento_id,))
+        return rows[0] if rows else None
+

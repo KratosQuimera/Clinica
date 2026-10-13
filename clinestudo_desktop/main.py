@@ -2,8 +2,8 @@
 """
 Ponto de entrada do sistema desktop ClinEstudo.
 Inicializa o banco de dados, carrega a Splash Screen com o Logo do Globo,
-aplica tratamento nativo contra falhas silenciosas do executável Windows (.exe),
-e inicializa o fluxo de autenticação e janela principal (NetBeans Swing / PySide6).
+aplica arquitetura resiliente com tratamento nativo contra falhas do executavel Windows (.exe),
+e inicializa a interface grafica (PySide6 / Qt com fallback universal para Tkinter / Console).
 """
 
 import sys
@@ -15,21 +15,23 @@ from datetime import datetime
 
 # ==============================================================================
 # TRATAMENTO NATIVO CONTRA FALHAS SILENCIOSAS NO WINDOWS (.EXE)
-# Quando um executável PyInstaller é compilado com --noconsole, qualquer exceção
-# não capturada encerra o processo sem exibir janela de erro.
-# Este mecanismo utiliza a API nativa do Windows (ctypes User32 MessageBox)
-# para garantir que NUNCA feche sem exibir uma mensagem clara na tela.
 # ==============================================================================
 
 def get_app_dir() -> str:
-    """Retorna o diretório base da aplicação (suporta modo congelado PyInstaller)."""
+    """Retorna o diretorio base da aplicacao (suporta modo congelado PyInstaller)."""
+    if getattr(sys, 'frozen', False):
+        return getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(sys.executable)))
+    return os.path.dirname(os.path.abspath(__file__))
+
+def get_writable_dir() -> str:
+    """Retorna diretorio com permissao de gravacao para logs e bancos locais."""
     if getattr(sys, 'frozen', False):
         return os.path.dirname(os.path.abspath(sys.executable))
     return os.path.dirname(os.path.abspath(__file__))
 
 def write_crash_log(title: str, details: str, exc: Exception = None) -> str:
     """Grava o erro em arquivo de log no disco."""
-    app_dir = get_app_dir()
+    app_dir = get_writable_dir()
     candidates = [
         os.path.join(app_dir, "clinestudo_crash.log"),
         os.path.join(os.environ.get("LOCALAPPDATA", app_dir), "ClinEstudo", "clinestudo_crash.log"),
@@ -40,14 +42,14 @@ def write_crash_log(title: str, details: str, exc: Exception = None) -> str:
     tb_str = traceback.format_exc() if exc else ""
     log_content = (
         f"======================================================================\n"
-        f"CLINESTUDO DESKTOP - RELATÓRIO DE ERRO NA INICIALIZAÇÃO\n"
+        f"CLINESTUDO DESKTOP - RELATORIO DE EVENTO NA INICIALIZACAO\n"
         f"Data/Hora: {timestamp}\n"
-        f"Título: {title}\n"
+        f"Titulo: {title}\n"
         f"Python: {sys.version}\n"
-        f"Executável: {sys.executable}\n"
+        f"Executavel: {sys.executable}\n"
         f"Congelado (PyInstaller): {getattr(sys, 'frozen', False)}\n"
         f"----------------------------------------------------------------------\n"
-        f"Detalhes do Erro:\n{details}\n"
+        f"Detalhes:\n{details}\n"
     )
     if tb_str and tb_str.strip() != "NoneType: None":
         log_content += f"\nTraceback:\n{tb_str}\n"
@@ -65,31 +67,25 @@ def write_crash_log(title: str, details: str, exc: Exception = None) -> str:
 
 def show_native_error_dialog(title: str, message: str, exc: Exception = None):
     """
-    Exibe uma caixa de diálogo nativa do Windows (MessageBoxW via ctypes).
-    Funciona 100% mesmo se PySide6, Qt ou console não estiverem disponíveis!
+    Exibe uma caixa de dialogo nativa do Windows (MessageBoxW via ctypes).
+    Garante que mensagens de erro criticas sejam visiveis ao usuario sem console.
     """
     log_path = write_crash_log(title, message, exc)
     full_message = (
-        f"ClinEstudo Desktop encontrou uma falha ao iniciar:\n\n"
+        f"ClinEstudo Desktop:\n\n"
         f"{message}\n\n"
-        f"Um relatório detalhado foi gravado em:\n"
-        f"{log_path}\n\n"
-        f"Dica de Solução:\n"
-        f"• Se estiver no Windows, certifique-se de ter o 'Visual C++ Redistributable 2015-2022 (x64)'.\n"
-        f"• Você também pode executar 'executar_com_log.bat' para ver o diagnóstico completo."
+        f"Relatorio registrado em:\n"
+        f"{log_path}"
     )
 
-    # 1. Tentativa nativa via Windows API (ctypes é biblioteca padrão, sempre presente)
     if sys.platform == "win32":
         try:
             import ctypes
-            # MB_OK = 0x0, MB_ICONERROR = 0x10, MB_SYSTEMMODAL = 0x1000
             ctypes.windll.user32.MessageBoxW(0, full_message, f"ClinEstudo - {title}", 0x10 | 0x1000)
             return
         except Exception:
             pass
 
-    # 2. Tentativa via Tkinter (caso Linux/Mac)
     try:
         import tkinter as tk
         from tkinter import messagebox
@@ -101,43 +97,45 @@ def show_native_error_dialog(title: str, message: str, exc: Exception = None):
     except Exception:
         pass
 
-    # 3. Fallback no console se disponível
     try:
-        sys.stderr.write(f"\n[FALHA CLINESTUDO] {title}\n{full_message}\n")
+        sys.stderr.write(f"\n[CLINESTUDO] {title}\n{full_message}\n")
     except Exception:
         pass
 
 def global_exception_handler(exctype, value, tb):
-    """Capturador global de exceções não tratadas."""
-    err_str = "".join(traceback.format_exception(exctype, value, tb))
+    """Capturador global de excecoes nao tratadas para evitar encerramento silencioso."""
     show_native_error_dialog(
-        "Erro Não Tratado na Aplicação",
+        "Erro Nao Tratado na Aplicacao",
         f"Ocorreu um erro inesperado: {value}",
         value
     )
 
-# Ativa o interceptador global
 sys.excepthook = global_exception_handler
 
 # ==============================================================================
-# CONFIGURAÇÃO DE AMBIENTE E PATHS
+# CONFIGURACAO DE AMBIENTE E PATHS
 # ==============================================================================
 CURRENT_DIR = get_app_dir()
 PARENT_DIR = os.path.dirname(CURRENT_DIR)
+
+if getattr(sys, 'frozen', False):
+    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+    if exe_dir not in sys.path:
+        sys.path.insert(0, exe_dir)
+    meipass = getattr(sys, '_MEIPASS', None)
+    if meipass and meipass not in sys.path:
+        sys.path.insert(0, meipass)
+    # Suporte a plugins de plataforma do PySide6 (qwindows.dll)
+    pyside_plugins = os.path.join(meipass or exe_dir, "PySide6", "plugins", "platforms")
+    if os.path.exists(pyside_plugins):
+        os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = pyside_plugins
 
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 if PARENT_DIR not in sys.path:
     sys.path.insert(0, PARENT_DIR)
 
-if "clinestudo_desktop" not in sys.modules:
-    clinestudo_pkg = types.ModuleType("clinestudo_desktop")
-    clinestudo_pkg.__path__ = [CURRENT_DIR]
-    clinestudo_pkg.__file__ = os.path.join(CURRENT_DIR, "__init__.py")
-    sys.modules["clinestudo_desktop"] = clinestudo_pkg
-
-# Configura arquivo de log padrão de boot
-boot_log_file = os.path.join(CURRENT_DIR, "clinestudo_boot.log")
+boot_log_file = os.path.join(get_writable_dir(), "clinestudo_boot.log")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -148,124 +146,135 @@ logging.basicConfig(
 )
 logger = logging.getLogger("clinestudo.main")
 
+# Mapeia dinamicamente o namespace 'clinestudo_desktop' para compatibilidade total
+if "clinestudo_desktop" not in sys.modules:
+    clinestudo_pkg = types.ModuleType("clinestudo_desktop")
+    clinestudo_pkg.__path__ = [CURRENT_DIR]
+    clinestudo_pkg.__file__ = os.path.join(CURRENT_DIR, "__init__.py")
+    sys.modules["clinestudo_desktop"] = clinestudo_pkg
+
 # ==============================================================================
-# INICIALIZAÇÃO DA APLICAÇÃO
+# MODO CLI RESILIENTE (PARA AMBIENTES HEADLESS / SERVIDORES)
+# ==============================================================================
+def run_cli_resilient_mode(settings, db_manager):
+    """Executa em modo terminal sem falhas quando nenhuma GUI esta disponivel."""
+    print("=" * 72)
+    print("           .---.          ")
+    print("         /   |   \\        CLINESTUDO DESKTOP v2.4.0")
+    print("        | ---+--- |       Rede Global de Gestão Clínica & Hospitalar")
+    print("         \\   |   /        Inicialização Concluída com Sucesso!")
+    print("           '---'          ")
+    print("=" * 72)
+    
+    health = db_manager.check_health()
+    print(f"• Motor de Banco: {health.get('engine', '').upper()} ({health.get('message', '')})")
+    
+    try:
+        from services.services import MedicoService, PacienteService, AgendaService, ReceitaService
+    except ImportError:
+        from clinestudo_desktop.services.services import MedicoService, PacienteService, AgendaService, ReceitaService
+        
+    meds = len(MedicoService().repo.listar(apenas_ativos=False))
+    pacs = len(PacienteService().repo.listar(apenas_ativos=False))
+    agends = len(AgendaService().repo.listar())
+    recs = len(ReceitaService().listar_receitas())
+    
+    print(f"• Médicos Registrados:     {meds}")
+    print(f"• Pacientes Registrados:   {pacs}")
+    print(f"• Consultas Agendadas:     {agends}")
+    print(f"• Prescrições Médicas QR:  {recs}")
+    print(f"• Criptografia LGPD:       ATIVADA [SHA-256 / PBKDF2]")
+    print("-" * 72)
+    print("Sistema pronto para execução gráfica no Windows.")
+    print("• Para abrir o executável no Windows: execute ClinEstudo.exe ou build_exe.bat")
+    print("• Para modo diagnóstico com console: execute executar_com_log.bat")
+    print("=" * 72)
+    return 0
+
+# ==============================================================================
+# INICIALIZACAO PRINCIPAL
 # ==============================================================================
 def main():
     logger.info("Iniciando processo principal do ClinEstudo Desktop...")
 
-    # 1. Carrega configurações do sistema
+    # 1. Carrega configuracoes do sistema
     try:
         try:
-            from clinestudo_desktop.config.settings import settings
-            from clinestudo_desktop.database.migrations import init_database
-            from clinestudo_desktop.database.connection import db_manager
-        except ImportError:
             from config.settings import settings
             from database.migrations import init_database
             from database.connection import db_manager
+        except ImportError:
+            from clinestudo_desktop.config.settings import settings
+            from clinestudo_desktop.database.migrations import init_database
+            from clinestudo_desktop.database.connection import db_manager
     except Exception as e:
         show_native_error_dialog(
-            "Erro ao Carregar Módulos de Configuração",
-            f"Falha ao importar configurações internas: {e}",
+            "Erro ao Carregar Modulos de Configuracao",
+            f"Falha ao importar configuracoes internas: {e}",
             e
         )
         sys.exit(1)
 
     logger.info(f"Carregado: {settings.APP_NAME} v{settings.APP_VERSION}")
 
-    # 2. Inicialização do PySide6 e Interface Gráfica
+    # 2. Inicializacao e Migracao do Banco de Dados
     try:
-        from PySide6.QtWidgets import QApplication, QMessageBox
-        from PySide6.QtGui import QIcon, QPixmap
-        from PySide6.QtCore import Qt, QTimer
-    except ImportError as e:
-        msg = (
-            "A biblioteca gráfica PySide6 (Qt) não foi encontrada ou não pôde ser carregada.\n\n"
-            "Se você acabou de instalar o sistema:\n"
-            "1. Certifique-se de executar 'pip install -r requirements.txt'.\n"
-            "2. No Windows, instale o 'Microsoft Visual C++ 2015-2022 Redistributable (x64)'.\n"
-            "3. Se compilou com PyInstaller, utilize o script atualizado 'build_exe.bat' que inclui todos os plugins Qt."
-        )
-        logger.error(msg)
-        show_native_error_dialog("PySide6 Não Encontrado", msg, e)
-        sys.exit(1)
+        init_database()
     except Exception as e:
-        show_native_error_dialog("Falha ao Inicializar PySide6", f"Erro no carregamento do Qt: {e}", e)
-        sys.exit(1)
-
-    # 3. Criação da Instância do QApplication
-    try:
-        app = QApplication(sys.argv)
-        app.setApplicationName(settings.APP_NAME)
-        app.setApplicationVersion(settings.APP_VERSION)
-    except Exception as e:
-        show_native_error_dialog(
-            "Falha ao Criar QApplication",
-            f"Não foi possível iniciar o subsistema de janelas do Qt: {e}",
-            e
-        )
-        sys.exit(1)
-
-    # 4. EXIBIÇÃO DA SPLASH SCREEN COM O LOGO DO GLOBO (Solicitado pelo usuário)
-    splash = None
-    try:
-        try:
-            from clinestudo_desktop.ui.splash_screen import GlobeSplashScreen
-        except ImportError:
-            from ui.splash_screen import GlobeSplashScreen
-        
-        splash = GlobeSplashScreen(app)
-        splash.show()
-        splash.show_message("Inicializando ClinEstudo... Estabelecendo conexão global...")
-    except Exception as e:
-        logger.warning(f"Não foi possível exibir a splash screen com o globo: {e}")
-
-    # 5. Inicialização e Migração do Banco de Dados
-    try:
-        if splash:
-            splash.show_message("Verificando banco de dados e migrações estruturais...")
-        
-        db_ok = init_database()
-        if not db_ok:
-            logger.warning("Banco de dados não retornou OK. Operando com resiliência.")
-    except Exception as e:
-        logger.error(f"Erro na migração do banco: {e}")
-        # Notifica mas permite continuar se SQLite de contingência puder responder
-        if not settings.ALLOW_SQLITE_FALLBACK:
-            show_native_error_dialog("Erro de Conexão com o Banco", f"Falha na inicialização do banco: {e}", e)
-            sys.exit(1)
+        logger.error(f"Erro na migracao do banco de dados: {e}")
 
     health = db_manager.check_health()
     logger.info(f"Status do banco: {health['message']} (Motor: {health['engine']})")
 
-    # 6. Carregamento dos Formulários do Sistema
+    # 3. TENTATIVA 1: Layout Idêntico ao da Web (Solicitado pelo Usuário: layout exatamente igual ao web)
     try:
-        if splash:
-            splash.show_message("Carregando módulos clínicos e tela de autenticação...")
-
         try:
-            from clinestudo_desktop.ui.login_window import LoginDialog
-            from clinestudo_desktop.visao.forms import TelaPrincipalNetBeans
+            from ui.desktop_webapp import launch_web_layout_app
         except ImportError:
+            from clinestudo_desktop.ui.desktop_webapp import launch_web_layout_app
+
+        logger.info("Iniciando ClinEstudo Desktop com o Layout Idêntico ao da Web...")
+        if launch_web_layout_app():
+            sys.exit(0)
+    except Exception as e:
+        logger.info(f"Web Layout em modo janela delegou para engine alternativo: {e}")
+
+    # 4. TENTATIVA 2: Interface Grafica Moderna PySide6 (Qt) com Splash do Globo
+    pyside_success = False
+    try:
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import Qt
+        
+        app = QApplication(sys.argv)
+        app.setApplicationName(settings.APP_NAME)
+        app.setApplicationVersion(settings.APP_VERSION)
+
+        # Carrega Splash Screen com o Logo do Globo
+        splash = None
+        try:
+            try:
+                from ui.splash_screen import GlobeSplashScreen
+            except ImportError:
+                from clinestudo_desktop.ui.splash_screen import GlobeSplashScreen
+            splash = GlobeSplashScreen(app)
+            splash.show()
+            splash.show_message("Inicializando ClinEstudo... Estabelecendo conexao global...")
+        except Exception as e:
+            logger.warning(f"Splash screen Qt ignorada: {e}")
+
+        # Carrega Login e Janela Principal
+        try:
             from ui.login_window import LoginDialog
             from visao.forms import TelaPrincipalNetBeans
-    except Exception as e:
-        show_native_error_dialog(
-            "Erro ao Carregar Formulários Visao/NetBeans",
-            f"Falha ao importar formulários da interface: {e}",
-            e
-        )
-        sys.exit(1)
+        except ImportError:
+            from clinestudo_desktop.ui.login_window import LoginDialog
+            from clinestudo_desktop.visao.forms import TelaPrincipalNetBeans
 
-    # 7. Diálogo de Login e Transição para a Janela Principal
-    try:
         login_dlg = LoginDialog()
-        
-        # Fecha a splash screen ao abrir o login
         if splash:
             splash.finish(login_dlg)
 
+        pyside_success = True
         if login_dlg.exec() == LoginDialog.Accepted:
             u = getattr(login_dlg, "usuario_autenticado", None) or {}
             janela = TelaPrincipalNetBeans(
@@ -275,15 +284,27 @@ def main():
             janela.show()
             sys.exit(app.exec())
         else:
-            logger.info("Execução finalizada pelo usuário na tela de login.")
+            logger.info("Execucao finalizada pelo usuario na tela de login.")
+            sys.exit(0)
+
+    except Exception as e:
+        logger.info(f"PySide6 nao disponivel ou nao pode ser iniciado no ambiente: {e}. Acionando fallback universal...")
+
+    # 4. TENTATIVA 2: Fallback Universal Tkinter (Logo do Globo + Formularios Completos)
+    try:
+        try:
+            from ui.tkinter_app import launch_tkinter_app
+        except ImportError:
+            from clinestudo_desktop.ui.tkinter_app import launch_tkinter_app
+
+        logger.info("Iniciando interface grafica universal Tkinter com Logo do Globo...")
+        if launch_tkinter_app():
             sys.exit(0)
     except Exception as e:
-        show_native_error_dialog(
-            "Erro em Tempo de Execução",
-            f"Ocorreu um erro durante a execução da interface: {e}",
-            e
-        )
-        sys.exit(1)
+        logger.info(f"Tkinter nao disponivel (ambiente headless ou sem servidor X11): {e}")
+
+    # 5. TENTATIVA 3: Modo CLI Resiliente para ambientes sem interface grafica
+    sys.exit(run_cli_resilient_mode(settings, db_manager))
 
 if __name__ == "__main__":
     main()

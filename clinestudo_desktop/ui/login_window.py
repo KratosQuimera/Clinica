@@ -11,10 +11,17 @@ try:
     HAS_PYSIDE = True
 except ImportError:
     HAS_PYSIDE = False
-    class QDialog: pass
+    class _DummyWidget:
+        def __init__(self, *args, **kwargs): pass
+        def __getattr__(self, name): return lambda *args, **kwargs: None
+    QDialog = QVBoxLayout = QHBoxLayout = QLabel = QLineEdit = QPushButton = QMessageBox = QFrame = Qt = _DummyWidget
 
-from clinestudo_desktop.services.services import AuthService
-from clinestudo_desktop.ui.theme import MODERN_QSS
+try:
+    from services.services import AuthService
+    from ui.theme import MODERN_QSS
+except ImportError:
+    from clinestudo_desktop.services.services import AuthService
+    from clinestudo_desktop.ui.theme import MODERN_QSS
 
 class LoginDialog(QDialog):
     def __init__(self, parent=None):

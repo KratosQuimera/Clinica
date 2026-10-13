@@ -1,8 +1,8 @@
-import { User, Doctor, Nurse, Patient, Appointment, AuditLog, Prescription } from '../types';
+import { User, Doctor, Nurse, Patient, Appointment, AuditLog, Prescription, Atendimento } from '../types';
 import { 
   INITIAL_USERS, INITIAL_DOCTORS, INITIAL_NURSES, 
   INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_AUDIT_LOGS,
-  INITIAL_PRESCRIPTIONS
+  INITIAL_PRESCRIPTIONS, INITIAL_ATENDIMENTOS
 } from '../data/initialData';
 
 const STORAGE_KEYS = {
@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
   PATIENTS: 'clinestudo_patients_v2',
   APPOINTMENTS: 'clinestudo_appointments_v2',
   PRESCRIPTIONS: 'clinestudo_prescriptions_v2',
+  ATENDIMENTOS: 'clinestudo_atendimentos_v2',
   AUDIT: 'clinestudo_audit_v2',
   ACTIVE_USER: 'clinestudo_active_user_v2',
   VIEW_MODE: 'clinestudo_view_mode_v2',
@@ -115,6 +116,22 @@ export const storage = {
     }
   },
 
+  getAtendimentos: (): Atendimento[] => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ATENDIMENTOS);
+      return data ? JSON.parse(data) : INITIAL_ATENDIMENTOS;
+    } catch {
+      return INITIAL_ATENDIMENTOS;
+    }
+  },
+  saveAtendimentos: (atendimentos: Atendimento[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ATENDIMENTOS, JSON.stringify(atendimentos));
+    } catch (e) {
+      console.warn('Erro ao salvar atendimentos no localStorage', e);
+    }
+  },
+
   getAuditLogs: (): AuditLog[] => {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.AUDIT);
@@ -193,6 +210,7 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(INITIAL_PATIENTS));
       localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(INITIAL_APPOINTMENTS));
       localStorage.setItem(STORAGE_KEYS.PRESCRIPTIONS, JSON.stringify(INITIAL_PRESCRIPTIONS));
+      localStorage.setItem(STORAGE_KEYS.ATENDIMENTOS, JSON.stringify(INITIAL_ATENDIMENTOS));
       localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(INITIAL_AUDIT_LOGS));
       localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(INITIAL_USERS[0]));
     } catch (e) {

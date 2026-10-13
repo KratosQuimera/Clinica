@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Users, Plus, Search, Edit2, Trash2, CheckCircle2, 
   AlertTriangle, Phone, Calendar, ShieldAlert, Heart, X, FileText,
-  MessageCircle, Printer, Pill, ShieldCheck
+  MessageCircle, Printer, Pill, ShieldCheck, Stethoscope
 } from 'lucide-react';
 import { Patient, Appointment, User, Prescription } from '../types';
 import { validarCPF, formatarCPF, formatarTelefone } from '../utils/validators';
@@ -17,6 +17,7 @@ interface PatientsViewProps {
   onOpenCreatePrescription: (patientId: number) => void;
   onOpenViewPrescription: (prescription: Prescription) => void;
   onSendWhatsAppPrescription: (prescription: Prescription) => void;
+  onOpenAtendimento?: (patientId: number) => void;
 }
 
 export const PatientsView: React.FC<PatientsViewProps> = ({
@@ -29,6 +30,7 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
   onOpenCreatePrescription,
   onOpenViewPrescription,
   onSendWhatsAppPrescription,
+  onOpenAtendimento,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterConvenio, setFilterConvenio] = useState('TODOS');
@@ -295,6 +297,16 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
                       )}
                     </td>
                     <td className="py-3 px-4 text-right space-x-1.5">
+                      {/* Atender Paciente / Prontuário */}
+                      {onOpenAtendimento && (
+                        <button
+                          onClick={() => onOpenAtendimento(p.id)}
+                          className="p-1.5 text-sky-400 hover:text-white hover:bg-sky-600/40 rounded transition-colors inline-block"
+                          title="Iniciar / Ver Atendimento Médico & Prontuário"
+                        >
+                          <Stethoscope className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       {/* Prescrever / Ver Receita */}
                       <button
                         onClick={() => onOpenCreatePrescription(p.id)}

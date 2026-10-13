@@ -1,5 +1,10 @@
-# Dependências do ClinEstudo Desktop (Python 3.10 / 3.11 / 3.12)
-PySide6>=6.6.0
-psycopg[binary]>=3.1.18
-python-dotenv>=1.0.1
+# Dependências do ClinEstudo Desktop (Python 3.10 / 3.11 / 3.12 / 3.13)
+# Essenciais para Interface e Empacotamento Executável (.exe)
 pyinstaller>=6.5.0
+python-dotenv>=1.0.1
+
+# Interface Gráfica Qt Moderna (Opcional - caso ausente, o sistema ativa o Web App ou Tkinter)
+PySide6>=6.6.0
+
+# Conexão remota com PostgreSQL (Opcional - caso ausente, o SQLite local é utilizado automaticamente)
+psycopg[binary]>=3.1.18

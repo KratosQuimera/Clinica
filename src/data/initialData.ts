@@ -1,4 +1,4 @@
-import { User, Doctor, Nurse, Patient, Appointment, AuditLog, Prescription } from '../types';
+import { User, Doctor, Nurse, Patient, Appointment, AuditLog, Prescription, Atendimento } from '../types';
 
 export const INITIAL_USERS: User[] = [
   {
@@ -493,5 +493,122 @@ export const INITIAL_PRESCRIPTIONS: Prescription[] = [
     orientacoesGerais: 'Evitar alimentos gelados e exposição ao vento. Retorno agendado para reavaliação de conduto auditivo após o término do antibiótico.',
     criadoEm: '2026-10-08T10:15:00Z',
   },
+];
+
+export const INITIAL_ATENDIMENTOS: Atendimento[] = [
+  {
+    id: 1,
+    pacienteId: 1, // Ana Paula Ferreira
+    pacienteNome: 'Ana Paula Ferreira',
+    pacienteCpf: '529.982.247-25',
+    pacienteTelefone: '(11) 93210-9876',
+    pacienteDataNascimento: '1988-04-12',
+    pacienteAlergias: 'Penicilina (choque anafilático prévio)',
+    pacienteConvenio: 'Unimed Saúde',
+    medicoId: 1, // Dr. Roberto Silva
+    medicoNome: 'Dr. Roberto Silva',
+    medicoCrm: '123456',
+    medicoUfCrm: 'SP',
+    medicoEspecialidade: 'Cardiologia',
+    agendamentoId: 1,
+    dataHora: '2026-10-10 09:30',
+    status: 'FINALIZADO',
+    motivoConsulta: 'Consulta de rotina cardiológica e acompanhamento de pressão arterial.',
+    queixaPrincipal: 'Cefaleia occipital esporádica e cansaço aos moderados esforços nos últimos 3 meses.',
+    anamnese: 'Paciente feminina, 38 anos, refere picos pressóricos domiciliares ocasionais (até 150/95 mmHg) associados a estresse profissional. Nega dor precordial típica, nega palpitações ou síncope. Histórico familiar positivo de HAS em ambos os genitores. Sedentária.',
+    historicoFamiliarSocial: 'Pai hipertenso e infartado aos 55 anos. Mãe com HAS e dislipidemia. Nega tabagismo e etilismo social leve.',
+    sinaisVitais: {
+      pressaoArterial: '142/90 mmHg',
+      frequenciaCardiaca: '78 bpm',
+      temperatura: '36.4 °C',
+      peso: '68.5 kg',
+      altura: '165 cm',
+      saturacaoO2: '98%',
+      glicemia: '92 mg/dL',
+    },
+    exameFisico: 'BEG, corada, hidratada, anictérica, acianótica. RCR 2T sem sopros audíveis. Murmúrio vesicular universalmente audível sem ruídos adventícios. Abdome flácido, indolor à palpação, sem visceromegalias. Pulsos periféricos amplos e simétricos. Sem edema de membros inferiores.',
+    hipoteseDiagnostica: 'Hipertensão Arterial Sistêmica Estágio 1 - Não Controlada',
+    cid10: 'I10 - Hipertensão essencial (primária)',
+    condutaEvolucao: 'Iniciado tratamento farmacológico com Losartana Potássica e hidroclorotiazida. Orientada sobre dieta hipossódica (DASH), cessação de ultraprocessados e início gradual de caminhadas 30min 5x/semana. Solicitados exames laboratoriais (MAPA 24h, ECG de 12 derivações, perfil lipídico, creatinina, potássio). Emitida receita médica vinculada com QR Code e envio via WhatsApp.',
+    prescricoesIds: [1],
+    observacoesRetorno: 'Trazer diário de pressão arterial de 15 dias e exames laboratoriais no retorno.',
+    retornoEmDias: 30,
+    criadoEm: '2026-10-10T09:30:00Z',
+  },
+  {
+    id: 2,
+    pacienteId: 2, // Lucas Mendes de Oliveira
+    pacienteNome: 'Lucas Mendes de Oliveira',
+    pacienteCpf: '111.444.777-35',
+    pacienteTelefone: '(11) 92109-8765',
+    pacienteDataNascimento: '1995-11-23',
+    pacienteAlergias: 'Nenhuma alergia conhecida (NID)',
+    pacienteConvenio: 'Bradesco Saúde',
+    medicoId: 3, // Dr. Carlos Eduardo Lima (Ortopedia)
+    medicoNome: 'Dr. Carlos Eduardo Lima',
+    medicoCrm: '789012',
+    medicoUfCrm: 'SP',
+    medicoEspecialidade: 'Ortopedia e Traumatologia',
+    agendamentoId: 2,
+    dataHora: '2026-10-11 11:15',
+    status: 'FINALIZADO',
+    motivoConsulta: 'Dor intensa e limitação de mobilidade no ombro direito após partida de futebol.',
+    queixaPrincipal: 'Dor aguda no ombro D há 4 dias com piora na abdução e elevação do membro.',
+    anamnese: 'Paciente masculino, 30 anos, refere trauma indireto durante atividade física. Apresentou dor súbita com estalido. Nega febre, nega parestesias distais. Fez uso de gelo local com alívio discreto.',
+    historicoFamiliarSocial: 'Praticante de musculação e futebol amador. Nega comorbidades prévias.',
+    sinaisVitais: {
+      pressaoArterial: '125/80 mmHg',
+      frequenciaCardiaca: '72 bpm',
+      temperatura: '36.2 °C',
+      peso: '82.0 kg',
+      altura: '178 cm',
+      saturacaoO2: '99%',
+    },
+    exameFisico: 'Ombro direito sem deformidades evidentes ou hematomas francos. Palpação dolorosa sobre o tubérculo maior e tendão do supraespinal. Testes de Neer e Hawkins positivos. Teste de Jobe positivo com perda de força grau IV. Mobilidade passiva preservada com arco doloroso entre 60° e 120°.',
+    hipoteseDiagnostica: 'Tendinite aguda do manguito rotador / Síndrome do impacto subacromial direito',
+    cid10: 'M75.1 - Síndrome do manguito rotador',
+    condutaEvolucao: 'Imobilização relativa com tipoia simples em momentos de crise. Prescrito anti-inflamatório não esteroidal (Cetoprofeno) associado a analgésico e protetor gástrico. Solicitada Ressonância Magnética do ombro direito para avaliar integridade das fibras tendíneas. Encaminhado para fisioterapia motora analgésica.',
+    prescricoesIds: [2],
+    observacoesRetorno: 'Retorno com laudo e imagens da ressonância magnética para avaliar necessidade de infiltração ou continuidade de fisioterapia.',
+    retornoEmDias: 20,
+    criadoEm: '2026-10-11T11:15:00Z',
+  },
+  {
+    id: 3,
+    pacienteId: 1, // Ana Paula Ferreira (segundo atendimento mais recente para demonstrar prontuário com múltiplos históricos)
+    pacienteNome: 'Ana Paula Ferreira',
+    pacienteCpf: '529.982.247-25',
+    pacienteTelefone: '(11) 93210-9876',
+    pacienteDataNascimento: '1988-04-12',
+    pacienteAlergias: 'Penicilina (choque anafilático prévio)',
+    pacienteConvenio: 'Unimed Saúde',
+    medicoId: 1, // Dr. Roberto Silva
+    medicoNome: 'Dr. Roberto Silva',
+    medicoCrm: '123456',
+    medicoUfCrm: 'SP',
+    medicoEspecialidade: 'Cardiologia',
+    dataHora: '2026-10-12 14:00',
+    status: 'FINALIZADO',
+    motivoConsulta: 'Retorno para avaliação de resposta à Losartana e controle pressórico.',
+    queixaPrincipal: 'Relata melhora das queixas de dor de cabeça. Trouxe diário de PA domiciliar.',
+    anamnese: 'Paciente retorna após 2 dias do início da medicação referindo excelente tolerância à Losartana 50mg, sem queixas de tontura ou tosse. Apresenta média de PA em casa de 128/82 mmHg. Mantendo redução de sal conforme pactuado.',
+    sinaisVitais: {
+      pressaoArterial: '126/82 mmHg',
+      frequenciaCardiaca: '70 bpm',
+      temperatura: '36.5 °C',
+      peso: '68.0 kg',
+      altura: '165 cm',
+      saturacaoO2: '99%',
+      glicemia: '88 mg/dL',
+    },
+    exameFisico: 'RCR 2T BNF sem sopros. Pulmões limpos. Sem edemas. PA em nível de meta terapêutica para paciente de risco intermediário.',
+    hipoteseDiagnostica: 'Hipertensão Arterial Sistêmica compensada sob medicação',
+    cid10: 'I10 - Hipertensão essencial (primária)',
+    condutaEvolucao: 'Mantida Losartana 50mg 1x ao dia pela manhã. Paciente parabenizada pela adesão terapêutica e controle do sal. Reforçada importância de não suspender o tratamento mesmo na ausência de sintomas.',
+    prescricoesIds: [],
+    observacoesRetorno: 'Próxima reavaliação agendada com resultados da MAPA 24h e ecocardiograma.',
+    retornoEmDias: 60,
+    criadoEm: '2026-10-12T14:00:00Z',
+  }
 ];
 

@@ -1,8 +1,12 @@
 import logging
 import sqlite3
 from typing import Optional
-from clinestudo_desktop.database.connection import db_manager
-from clinestudo_desktop.auth.hasher import hash_password
+try:
+    from database.connection import db_manager
+    from auth.hasher import hash_password
+except ImportError:
+    from clinestudo_desktop.database.connection import db_manager
+    from clinestudo_desktop.auth.hasher import hash_password
 
 logger = logging.getLogger("clinestudo.migrations")
 
@@ -107,6 +111,29 @@ CREATE TABLE IF NOT EXISTS receitas (
     enviado_whatsapp INTEGER NOT NULL DEFAULT 0,
     impresso INTEGER NOT NULL DEFAULT 0,
     criado_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS atendimentos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    paciente_id INTEGER NOT NULL REFERENCES pacientes(id),
+    medico_id INTEGER NOT NULL REFERENCES medicos(id),
+    agendamento_id INTEGER REFERENCES agendamentos(id),
+    data_hora TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'FINALIZADO',
+    motivo_consulta TEXT NOT NULL,
+    queixa_principal TEXT NOT NULL,
+    anamnese TEXT,
+    historico_familiar_social TEXT,
+    sinais_vitais_json TEXT,
+    exame_fisico TEXT,
+    hipotese_diagnostica TEXT NOT NULL,
+    cid10 TEXT,
+    conduta_evolucao TEXT,
+    prescricoes_ids_json TEXT,
+    retorno_em_dias INTEGER,
+    observacoes_retorno TEXT,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    atualizado_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 """
 

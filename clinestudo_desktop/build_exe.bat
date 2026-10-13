@@ -4,60 +4,76 @@ REM ClinEstudo - Script de Build do Executável Windows (PyInstaller)
 REM Compatível com Windows 10 e Windows 11 (64-bit)
 REM ============================================================================
 
-echo =======================================================
-echo  Iniciando geracao do executavel ClinEstudo Desktop
-echo =======================================================
+title Gerador de Executavel - ClinEstudo Desktop
 
-REM 1. Configura PYTHONPATH com o diretorio do script e pai
+REM 1. Força o diretório de trabalho a ser a pasta do script (evita erro quando executado como admin)
+cd /d "%~dp0"
 set "DIR_ATUAL=%~dp0"
 set "PYTHONPATH=%DIR_ATUAL%;%DIR_ATUAL%..;%PYTHONPATH%"
 
-REM 2. Verifica se Python esta instalado
+echo =======================================================
+echo  Iniciando geracao do executavel ClinEstudo Desktop
+echo  Pasta de trabalho: %DIR_ATUAL%
+echo =======================================================
+
+REM Fecha instâncias anteriores abertas que travam o arquivo executável
+taskkill /F /IM ClinEstudo.exe >nul 2>&1
+taskkill /F /IM ClinEstudo_Standalone.exe >nul 2>&1
+
+REM 2. Detecta o comando Python do sistema (python ou py)
+set "PY_CMD=python"
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERRO] Python nao foi encontrado no PATH do sistema.
-    echo Instale o Python 3.10, 3.11 ou 3.12 e marque 'Add Python to PATH'.
-    pause
-    exit /b 1
+    py --version >nul 2>&1
+    if %errorlevel% equ 0 (
+        set "PY_CMD=py"
+    ) else (
+        echo [ERRO CRITICO] O Python nao foi encontrado no PATH do Windows!
+        echo.
+        echo Por favor, instale o Python 3.10, 3.11 ou 3.12 em:
+        echo https://www.python.org/downloads/
+        echo Certifique-se de marcar a opcao "Add Python to PATH" durante a instalacao.
+        echo.
+        pause
+        exit /b 1
+    )
 )
 
-REM 3. Instala dependencias necessarias
-echo [1/4] Instalando dependencias do projeto...
-pip install -r requirements.txt
+echo • Usando interpretador: %PY_CMD%
+%PY_CMD% --version
+
+REM 3. Instala dependências usando o módulo pip do Python diretamente
+echo.
+echo [1/4] Verificando e instalando dependencias (pip)...
+%PY_CMD% -m pip install --upgrade pip >nul 2>&1
+%PY_CMD% -m pip install "pyinstaller>=6.5.0" python-dotenv --prefer-binary
+%PY_CMD% -m pip install -r requirements.txt --prefer-binary >nul 2>&1
+
+REM 4. Executa o build automatizado através do build_exe.py
+echo.
+echo [2/4] Compilando executavel com PyInstaller...
+%PY_CMD% build_exe.py
+
 if %errorlevel% neq 0 (
-    echo [AVISO] Ocorreu um problema ao verificar dependencias com pip. Continuando...
+    echo.
+    echo [TENTATIVA ALTERNATIVA] Executando PyInstaller diretamente via modulo...
+    %PY_CMD% -m PyInstaller --clean clinestudo.spec
 )
 
-REM 4. Limpeza de builds anteriores
-echo [2/4] Limpando pastas temporarias antigas...
-if exist build rmdir /s /q build
-if exist dist rmdir /s /q dist
-
-REM 5. Executa PyInstaller com o arquivo de especificacao clinestudo.spec
-echo [3/4] Compilando executavel sem janela de console (--noconsole)...
-pyinstaller --clean clinestudo.spec
 if %errorlevel% neq 0 (
-    echo [ERRO] Falha na compilacao com PyInstaller!
-    pause
-    exit /b 1
-)
-
-REM 6. Prepara pacote final de distribuicao
-echo [4/4] Preparando pacote final de distribuicao...
-if exist dist\ClinEstudo (
-    copy .env.example dist\ClinEstudo\.env.example >nul 2>&1
-    copy README.md dist\ClinEstudo\README.md >nul 2>&1
-    copy executar_com_log.bat dist\ClinEstudo\executar_com_log.bat >nul 2>&1
-    copy diagnostico_exe.py dist\ClinEstudo\diagnostico_exe.py >nul 2>&1
     echo.
     echo =======================================================
-    echo  SUCESSO! Pacote compilado gerado com sucesso:
-    echo  - dist\ClinEstudo\ClinEstudo.exe (Executavel Oficial)
-    echo  - dist\ClinEstudo\ClinEstudo_Debug.exe (Modo Console)
-    echo  - dist\ClinEstudo\executar_com_log.bat (Launcher Diagnostico)
+    echo  [ERRO] Falha ao compilar o executavel!
+    echo  Executando diagnostico automatico...
     echo =======================================================
-) else (
-    echo [ERRO] Pasta dist\ClinEstudo nao encontrada.
+    %PY_CMD% diagnostico_exe.py
+    echo.
+    pause
+    exit /b 1
 )
 
+echo.
+echo [4/4] Processo concluido com sucesso!
+echo Executavel disponivel na pasta: dist\ClinEstudo\ClinEstudo.exe
+echo.
 pause

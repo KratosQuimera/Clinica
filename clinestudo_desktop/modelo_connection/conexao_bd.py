@@ -1,6 +1,9 @@
 import logging
 from typing import Optional, List, Dict, Any, Tuple
-from clinestudo_desktop.database.connection import db_manager
+try:
+    from database.connection import db_manager
+except ImportError:
+    from clinestudo_desktop.database.connection import db_manager
 
 logger = logging.getLogger("clinestudo.conexaoBD")
 

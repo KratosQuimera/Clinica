@@ -14,18 +14,31 @@ try:
     HAS_PYSIDE = True
 except ImportError:
     HAS_PYSIDE = False
-    # Mock para permitir importação e verificação sintática em ambientes sem PySide6 instalado
-    class QWidget: pass
-    class QDialog: pass
+    class _DummyWidget:
+        def __init__(self, *args, **kwargs): pass
+        def __getattr__(self, name): return lambda *args, **kwargs: None
+    QWidget = QVBoxLayout = QHBoxLayout = QLabel = QPushButton = QLineEdit = _DummyWidget
+    QTableWidget = QTableWidgetItem = QHeaderView = QComboBox = QDateEdit = QTimeEdit = QTextEdit = _DummyWidget
+    QMessageBox = QDialog = QFormLayout = QTabWidget = QSplitter = Qt = QDate = QTime = _DummyWidget
 
-from clinestudo_desktop.services.services import (
-    MedicoService, EnfermeiroService, PacienteService, AgendaService, RelatorioService
-)
-from clinestudo_desktop.repositories.repositories import (
-    MedicoRepository, EnfermeiroRepository, PacienteRepository,
-    AgendamentoRepository, UsuarioRepository, AuditoriaRepository
-)
-from clinestudo_desktop.auth.session import gerenciador_sessao
+try:
+    from services.services import (
+        MedicoService, EnfermeiroService, PacienteService, AgendaService, RelatorioService
+    )
+    from repositories.repositories import (
+        MedicoRepository, EnfermeiroRepository, PacienteRepository,
+        AgendamentoRepository, UsuarioRepository, AuditoriaRepository
+    )
+    from auth.session import gerenciador_sessao
+except ImportError:
+    from clinestudo_desktop.services.services import (
+        MedicoService, EnfermeiroService, PacienteService, AgendaService, RelatorioService
+    )
+    from clinestudo_desktop.repositories.repositories import (
+        MedicoRepository, EnfermeiroRepository, PacienteRepository,
+        AgendamentoRepository, UsuarioRepository, AuditoriaRepository
+    )
+    from clinestudo_desktop.auth.session import gerenciador_sessao
 
 class MedicosView(QWidget):
     def __init__(self):

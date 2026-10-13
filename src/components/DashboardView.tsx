@@ -4,7 +4,7 @@ import {
   AlertCircle, Activity, ChevronRight, UserPlus, CalendarPlus, FileText,
   UserCheck, Shield, Sparkles, Pill, MessageCircle, Printer, Globe
 } from 'lucide-react';
-import { Doctor, Nurse, Patient, Appointment, User, Prescription } from '../types';
+import { Doctor, Nurse, Patient, Appointment, User, Prescription, Atendimento } from '../types';
 
 interface DashboardViewProps {
   doctors: Doctor[];
@@ -12,6 +12,7 @@ interface DashboardViewProps {
   patients: Patient[];
   appointments: Appointment[];
   prescriptions: Prescription[];
+  atendimentos?: Atendimento[];
   currentUser: User;
   onNavigate: (tab: string) => void;
   onUpdateAppointmentStatus: (id: number, status: any) => void;
@@ -26,6 +27,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   patients,
   appointments,
   prescriptions,
+  atendimentos = [],
   currentUser,
   onNavigate,
   onUpdateAppointmentStatus,
@@ -87,8 +89,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Selecione uma das opções rápidas abaixo ou utilize a barra superior de menus no formato original NetBeans (Cadastros, Relatórios, Ferramentas, Sair).
           </p>
 
-          {/* Os 5 botões de atalho da TelaPrincipal */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 pt-1">
+          {/* Os 6 botões de atalho da TelaPrincipal (incluindo Atendimento Médico) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 pt-1">
             <button
               onClick={() => onNavigate('medicos')}
               className="flex flex-col items-center justify-center p-4 bg-slate-950/80 hover:bg-sky-950/40 border border-sky-500/40 hover:border-sky-400 rounded-lg text-center transition-all group cursor-pointer shadow-sm"
@@ -134,8 +136,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
 
             <button
+              onClick={() => onNavigate('atendimentos')}
+              className="flex flex-col items-center justify-center p-4 bg-slate-950/80 hover:bg-sky-950/50 border border-sky-500/50 hover:border-sky-400 rounded-lg text-center transition-all group cursor-pointer shadow-sm"
+            >
+              <div className="p-3 bg-sky-500/15 rounded-full group-hover:scale-105 transition-transform text-sky-400 mb-2 border border-sky-500/30">
+                <Stethoscope className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold text-sky-300 group-hover:text-sky-200">Atendimento Médico</span>
+              <span className="text-[10px] text-slate-400 mt-0.5">Prontuário & Evolução</span>
+            </button>
+
+            <button
               onClick={() => onNavigate('receitas')}
-              className="flex flex-col items-center justify-center p-4 bg-slate-950/80 hover:bg-emerald-950/50 border border-emerald-500/50 hover:border-emerald-400 rounded-lg text-center transition-all group cursor-pointer shadow-sm col-span-2 sm:col-span-1"
+              className="flex flex-col items-center justify-center p-4 bg-slate-950/80 hover:bg-emerald-950/50 border border-emerald-500/50 hover:border-emerald-400 rounded-lg text-center transition-all group cursor-pointer shadow-sm"
             >
               <div className="p-3 bg-emerald-500/15 rounded-full group-hover:scale-105 transition-transform text-emerald-400 mb-2 border border-emerald-500/30">
                 <Pill className="w-6 h-6" />

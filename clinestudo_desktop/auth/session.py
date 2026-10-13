@@ -1,7 +1,11 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from clinestudo_desktop.config.settings import settings
-from clinestudo_desktop.auth.permissions import usuario_possui_permissao
+try:
+    from config.settings import settings
+    from auth.permissions import usuario_possui_permissao
+except ImportError:
+    from clinestudo_desktop.config.settings import settings
+    from clinestudo_desktop.auth.permissions import usuario_possui_permissao
 
 class SessaoUsuario:
     """Representa a sessão ativa do usuário autenticado no sistema desktop."""

@@ -61,8 +61,34 @@ def run_diagnostics():
         issues.append(f"Falha ao carregar PySide6: {e}")
         print(f"    -> PySide6: [ERRO NO SUBSISTEMA] {e}")
 
-    # 4. Verificação de permissões de escrita de logs e banco
-    print("\n[4] Testando permissão de escrita de arquivos no diretório...")
+    # 4. Teste do Tkinter (Fallback Universal de Alta Compatibilidade)
+    print("\n[4] Testando suporte ao motor gráfico Tkinter (Fallback Universal)...")
+    try:
+        import tkinter
+        print("    -> Tkinter: [OK] Motor gráfico nativo operacional.")
+        print("       (Garante execução do executável mesmo sem PySide6/Visual C++).")
+    except ImportError:
+        print("    -> Tkinter: [NÃO ENCONTRADO] (Normal em servidores Linux sem interface).")
+
+    # 5. Verificação da tabela de receitas, atendimentos e migrações
+    print("\n[5] Testando migrações de banco, nova tabela de Atendimentos e Prescrições Médicas...")
+    try:
+        from database.migrations import init_database
+        from database.connection import db_manager
+        init_database()
+        h = db_manager.check_health()
+        print(f"    -> Banco de Dados: [OK] {h.get('message')}")
+        
+        # Testa se as tabelas existem
+        res_atend = db_manager.execute_query("SELECT count(*) as total FROM atendimentos;")
+        res_rec = db_manager.execute_query("SELECT count(*) as total FROM receitas;")
+        print(f"    -> Tabela 'atendimentos' (Prontuário Médico): [OK] Conectada ({res_atend[0]['total']} registros)")
+        print(f"    -> Tabela 'receitas' (QR Code / WhatsApp): [OK] Conectada ({res_rec[0]['total']} registros)")
+    except Exception as e:
+        print(f"    -> Banco de Dados: [AVISO] {e}")
+
+    # 6. Verificação de permissões de escrita de logs e banco
+    print("\n[6] Testando permissão de escrita de arquivos no diretório...")
     test_file = "clinestudo_perm_test.tmp"
     try:
         with open(test_file, "w") as f:
@@ -76,11 +102,29 @@ def run_diagnostics():
         )
         print(f"    -> Permissão de Escrita: [BLOQUEADO] {e}")
 
-    # 5. Resumo e Instruções
+    # 7. Verificação de PyInstaller
+    print("\n[7] Testando disponibilidade do PyInstaller (Compilação para .EXE)...")
+    try:
+        import PyInstaller
+        print(f"    -> PyInstaller: [OK] Instalado (versão {PyInstaller.__version__})")
+    except ImportError:
+        print("    -> PyInstaller: [NÃO INSTALADO] Execute: pip install pyinstaller")
+
+    # 8. Verificação do pacote Web SPA (web_dist)
+    print("\n[8] Testando pacote Web SPA (Layout idêntico à Web)...")
+    web_dist_index = os.path.join(os.getcwd(), "web_dist", "index.html")
+    if not os.path.exists(web_dist_index):
+        web_dist_index = os.path.join(os.path.dirname(__file__), "web_dist", "index.html")
+    if os.path.exists(web_dist_index):
+        print("    -> Pacote Web: [OK] index.html e assets encontrados.")
+    else:
+        print("    -> Pacote Web: [AVISO] Pasta web_dist não encontrada.")
+
+    # Resumo e Instruções
     print("\n" + "=" * 70)
     if not issues:
-        print("  RESULTADO: AMBIENTE APROVADO! Todos os subsistemas estão funcionais.")
-        print("  O sistema ClinEstudo está pronto para ser executado.")
+        print("  RESULTADO: AMBIENTE APROVADO! Todos os subsistemas essenciais estão funcionais.")
+        print("  O sistema ClinEstudo está pronto para ser executado e compilado.")
         print("=" * 70)
     else:
         print("  PROBLEMAS DETECTADOS:")

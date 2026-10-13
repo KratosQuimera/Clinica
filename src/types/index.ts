@@ -117,10 +117,57 @@ export interface AuditLog {
   usuarioId?: number;
   loginUsuario: string;
   acao: string;
-  entidade: 'USUARIOS' | 'MEDICOS' | 'ENFERMEIROS' | 'PACIENTES' | 'AGENDAMENTOS' | 'RECEITAS' | 'SISTEMA';
+  entidade: 'USUARIOS' | 'MEDICOS' | 'ENFERMEIROS' | 'PACIENTES' | 'AGENDAMENTOS' | 'RECEITAS' | 'ATENDIMENTOS' | 'SISTEMA';
   registroId?: number;
   detalhes: string;
   ipOrigem: string;
   criadoEm: string;
+}
+
+export type AtendimentoStatus = 'EM_ANDAMENTO' | 'FINALIZADO' | 'CANCELADO';
+
+export interface SinaisVitais {
+  pressaoArterial?: string; // ex: 120/80 mmHg
+  frequenciaCardiaca?: string; // bpm
+  temperatura?: string; // °C
+  peso?: string; // kg
+  altura?: string; // cm
+  saturacaoO2?: string; // %
+  glicemia?: string; // mg/dL
+}
+
+export interface Atendimento {
+  id: number;
+  pacienteId: number;
+  medicoId: number;
+  agendamentoId?: number;
+  dataHora: string;
+  status: AtendimentoStatus;
+  motivoConsulta: string;
+  queixaPrincipal: string;
+  anamnese: string; // História da Moléstia Atual (HMA)
+  historicoFamiliarSocial?: string;
+  sinaisVitais: SinaisVitais;
+  exameFisico: string;
+  hipoteseDiagnostica: string;
+  cid10?: string;
+  condutaEvolucao: string;
+  prescricoesIds: number[];
+  observacoesRetorno?: string;
+  retornoEmDias?: number;
+  criadoEm: string;
+  atualizadoEm?: string;
+
+  // Metadados para visualização e histórico médico
+  pacienteNome?: string;
+  pacienteCpf?: string;
+  pacienteTelefone?: string;
+  pacienteDataNascimento?: string;
+  pacienteAlergias?: string;
+  pacienteConvenio?: string;
+  medicoNome?: string;
+  medicoCrm?: string;
+  medicoUfCrm?: string;
+  medicoEspecialidade?: string;
 }
 

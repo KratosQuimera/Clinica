@@ -3,15 +3,26 @@ import io
 import json
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple
-from clinestudo_desktop.config.settings import settings
-from clinestudo_desktop.models.entities import Usuario, Medico, Enfermeiro, Paciente, Agendamento, Auditoria
-from clinestudo_desktop.repositories.repositories import (
-    UsuarioRepository, MedicoRepository, EnfermeiroRepository,
-    PacienteRepository, AgendamentoRepository, AuditoriaRepository
-)
-from clinestudo_desktop.auth.hasher import hash_password, verify_password
-from clinestudo_desktop.auth.session import gerenciador_sessao
-from clinestudo_desktop.services.validators import validar_cpf, validar_crm, validar_coren, formatar_cpf, validar_email
+try:
+    from config.settings import settings
+    from models.entities import Usuario, Medico, Enfermeiro, Paciente, Agendamento, Auditoria, Receita, Atendimento
+    from repositories.repositories import (
+        UsuarioRepository, MedicoRepository, EnfermeiroRepository,
+        PacienteRepository, AgendamentoRepository, AuditoriaRepository, ReceitaRepository, AtendimentoRepository
+    )
+    from auth.hasher import hash_password, verify_password
+    from auth.session import gerenciador_sessao
+    from services.validators import validar_cpf, validar_crm, validar_coren, formatar_cpf, validar_email
+except ImportError:
+    from clinestudo_desktop.config.settings import settings
+    from clinestudo_desktop.models.entities import Usuario, Medico, Enfermeiro, Paciente, Agendamento, Auditoria, Receita, Atendimento
+    from clinestudo_desktop.repositories.repositories import (
+        UsuarioRepository, MedicoRepository, EnfermeiroRepository,
+        PacienteRepository, AgendamentoRepository, AuditoriaRepository, ReceitaRepository, AtendimentoRepository
+    )
+    from clinestudo_desktop.auth.hasher import hash_password, verify_password
+    from clinestudo_desktop.auth.session import gerenciador_sessao
+    from clinestudo_desktop.services.validators import validar_cpf, validar_crm, validar_coren, formatar_cpf, validar_email
 
 class AuthService:
     def __init__(self):
@@ -288,3 +299,194 @@ class RelatorioService:
                 a.get("status"), a.get("motivo")
             ])
         return output.getvalue()
+
+class ReceitaService:
+    def __init__(self):
+        self.repo = ReceitaRepository()
+        self.paciente_repo = PacienteRepository()
+        self.medico_repo = MedicoRepository()
+        self.audit = AuditoriaRepository()
+
+    def emitir_receita(
+        self,
+        paciente_id: int,
+        medico_id: int,
+        medicamentos: List[Dict[str, Any]],
+        orientacoes_gerais: str = "",
+        validade_dias: int = 30,
+        usuario_responsavel: str = "sistema",
+        perfil_usuario: Optional[str] = None
+    ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        if perfil_usuario and perfil_usuario not in ("ADMINISTRADOR", "MEDICO"):
+            return False, "Acesso restrito: somente administradores e médicos podem criar ou alterar receitas médicas.", None
+
+        if not paciente_id or not medico_id:
+            return False, "Paciente e médico são campos obrigatórios.", None
+
+        if not medicamentos:
+            return False, "A receita médica deve conter ao menos um medicamento prescrito.", None
+
+        paciente = self.paciente_repo.buscar_por_id(paciente_id)
+        if not paciente:
+            return False, "Paciente não encontrado no cadastro.", None
+
+        medico = self.medico_repo.buscar_por_id(medico_id)
+        if not medico:
+            return False, "Médico não encontrado no cadastro.", None
+
+        import secrets
+        codigo_autenticidade = f"REC-{datetime.now().strftime('%Y%m')}-{secrets.token_hex(4).upper()}"
+        agora = datetime.now()
+        data_emissao = agora.strftime("%Y-%m-%d")
+        hora_emissao = agora.strftime("%H:%M")
+
+        receita = Receita(
+            paciente_id=paciente_id,
+            medico_id=medico_id,
+            codigo_autenticidade=codigo_autenticidade,
+            data_emissao=data_emissao,
+            hora_emissao=hora_emissao,
+            validade_dias=validade_dias,
+            medicamentos_json=json.dumps(medicamentos, ensure_ascii=False),
+            orientacoes_gerais=orientacoes_gerais,
+            enviado_whatsapp=False,
+            impresso=False
+        )
+
+        receita_id = self.repo.criar(receita)
+        self.audit.registrar(Auditoria(
+            login_usuario=usuario_responsavel,
+            acao="RECEITA_EMITIDA",
+            entidade="RECEITAS",
+            registro_id=receita_id,
+            detalhes=f"Receita autenticada com código {codigo_autenticidade} para o paciente {paciente.get('nome')}"
+        ))
+
+        resultado = {
+            "id": receita_id,
+            "codigo_autenticidade": codigo_autenticidade,
+            "paciente": paciente.get("nome"),
+            "medico": medico.get("nome"),
+            "crm": f"{medico.get('crm')}/{medico.get('uf_crm')}",
+            "data_emissao": data_emissao,
+            "hora_emissao": hora_emissao,
+            "validade_dias": validade_dias,
+            "medicamentos": medicamentos,
+            "orientacoes_gerais": orientacoes_gerais,
+            "qr_code_payload": f"https://clinestudo.com.br/validar/{codigo_autenticidade}"
+        }
+        return True, "Receita médica emitida com sucesso!", resultado
+
+    def listar_receitas(self, paciente_id: Optional[int] = None, medico_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        return self.repo.listar_todas(paciente_id, medico_id)
+
+    def registrar_envio_whatsapp(self, receita_id: int, usuario: str = "sistema") -> bool:
+        self.repo.marcar_enviado_whatsapp(receita_id)
+        self.audit.registrar(Auditoria(
+            login_usuario=usuario,
+            acao="RECEITA_WHATSAPP",
+            entidade="RECEITAS",
+            registro_id=receita_id,
+            detalhes="Receita médica enviada ao paciente via WhatsApp"
+        ))
+        return True
+
+    def registrar_impressao(self, receita_id: int, usuario: str = "sistema") -> bool:
+        self.repo.marcar_impresso(receita_id)
+        self.audit.registrar(Auditoria(
+            login_usuario=usuario,
+            acao="RECEITA_IMPRESSA",
+            entidade="RECEITAS",
+            registro_id=receita_id,
+            detalhes="Receita médica impressa com código QR"
+        ))
+        return True
+
+class AtendimentoService:
+    def __init__(self):
+        self.repo = AtendimentoRepository()
+        self.paciente_repo = PacienteRepository()
+        self.medico_repo = MedicoRepository()
+        self.receita_repo = ReceitaRepository()
+        self.audit = AuditoriaRepository()
+
+    def registrar_atendimento(
+        self,
+        paciente_id: int,
+        medico_id: int,
+        queixa_principal: str,
+        hipotese_diagnostica: str,
+        motivo_consulta: str = "",
+        anamnese: str = "",
+        historico_familiar_social: str = "",
+        sinais_vitais: Optional[Dict[str, Any]] = None,
+        exame_fisico: str = "",
+        cid10: str = "",
+        conduta_evolucao: str = "",
+        prescricoes_ids: Optional[List[int]] = None,
+        retorno_em_dias: Optional[int] = None,
+        observacoes_retorno: str = "",
+        status: str = "FINALIZADO",
+        agendamento_id: Optional[int] = None,
+        perfil_usuario: str = "MEDICO",
+        usuario_login: str = "medico"
+    ) -> Tuple[bool, str, Optional[int]]:
+        """
+        Registra atendimento clínico vinculado ao paciente.
+        Regra estrita de negócio: SOMENTE os médicos poderão alterar chamado atendimento.
+        """
+        if perfil_usuario != "MEDICO":
+            return False, "Acesso restrito: somente profissionais médicos têm permissão para registrar ou alterar atendimentos clínicos.", None
+
+        paciente = self.paciente_repo.buscar_por_id(paciente_id)
+        if not paciente:
+            return False, "Paciente não encontrado.", None
+
+        medico = self.medico_repo.buscar_por_id(medico_id)
+        if not medico:
+            return False, "Médico responsável não encontrado.", None
+
+        if not queixa_principal or not queixa_principal.strip():
+            return False, "Queixa principal do paciente é obrigatória.", None
+
+        if not hipotese_diagnostica or not hipotese_diagnostica.strip():
+            return False, "Hipótese diagnóstica é obrigatória.", None
+
+        data_hora = datetime.now().strftime("%d/%m/%Y %H:%M")
+        atend = Atendimento(
+            paciente_id=paciente_id,
+            medico_id=medico_id,
+            agendamento_id=agendamento_id,
+            data_hora=data_hora,
+            status=status,
+            motivo_consulta=motivo_consulta.strip() or "Consulta médica ambulatorial",
+            queixa_principal=queixa_principal.strip(),
+            anamnese=anamnese.strip(),
+            historico_familiar_social=historico_familiar_social.strip(),
+            sinais_vitais_json=json.dumps(sinais_vitais or {}, ensure_ascii=False),
+            exame_fisico=exame_fisico.strip(),
+            hipotese_diagnostica=hipotese_diagnostica.strip(),
+            cid10=cid10.strip() if cid10 else None,
+            conduta_evolucao=conduta_evolucao.strip(),
+            prescricoes_ids_json=json.dumps(prescricoes_ids or []),
+            retorno_em_dias=retorno_em_dias,
+            observacoes_retorno=observacoes_retorno.strip()
+        )
+
+        novo_id = self.repo.criar(atend)
+        self.audit.registrar(Auditoria(
+            login_usuario=usuario_login,
+            acao="CRIAR_ATENDIMENTO",
+            entidade="ATENDIMENTOS",
+            registro_id=novo_id,
+            detalhes=f"Atendimento registrado para {paciente.get('nome')} por {medico.get('nome')} (CID: {cid10})"
+        ))
+        return True, "Atendimento clínico registrado com sucesso no prontuário do paciente.", novo_id
+
+    def consultar_historico_paciente(self, paciente_id: int) -> List[Dict[str, Any]]:
+        """Retorna histórico completo de consultas anteriores vinculadas ao paciente."""
+        return self.repo.listar_por_paciente(paciente_id)
+
+    def listar_todos(self) -> List[Dict[str, Any]]:
+        return self.repo.listar_todos()
+

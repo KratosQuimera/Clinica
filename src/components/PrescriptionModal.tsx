@@ -248,6 +248,16 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
   // Salvar Receita no prontuário do paciente
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Regra estrita: somente administradores e médicos alteram receitas
+    if (currentUser.perfil !== 'ADMINISTRADOR' && currentUser.perfil !== 'MEDICO') {
+      setFeedback({ 
+        type: 'error', 
+        message: 'Acesso Restrito: Somente administradores e médicos possuem autorização para criar ou alterar receitas médicas.' 
+      });
+      return;
+    }
+
     if (!selectedPatient) {
       setFeedback({ type: 'error', message: 'Selecione um paciente para a receita.' });
       return;

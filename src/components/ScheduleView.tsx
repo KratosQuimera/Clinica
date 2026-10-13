@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Calendar, Clock, Plus, Search, Filter, AlertTriangle, 
-  CheckCircle2, XCircle, FileText, ChevronLeft, ChevronRight, X, User, Pill
+  CheckCircle2, XCircle, FileText, ChevronLeft, ChevronRight, X, User, Pill, Stethoscope
 } from 'lucide-react';
 import { Appointment, Doctor, Patient, Nurse, AppointmentStatus, User as AppUser } from '../types';
 
@@ -14,6 +14,7 @@ interface ScheduleViewProps {
   onSaveAppointment: (appointment: Omit<Appointment, 'id' | 'criadoEm'>, id?: number) => { success: boolean; message: string };
   onUpdateStatus: (id: number, status: AppointmentStatus, obs?: string) => { success: boolean; message: string };
   onOpenCreatePrescription: (patientId: number, doctorId?: number) => void;
+  onOpenAtendimento?: (patientId: number, doctorId?: number) => void;
 }
 
 export const ScheduleView: React.FC<ScheduleViewProps> = ({
@@ -25,6 +26,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   onSaveAppointment,
   onUpdateStatus,
   onOpenCreatePrescription,
+  onOpenAtendimento,
 }) => {
   const [viewMode, setViewMode] = useState<'dia' | 'semana' | 'mes'>('dia');
   const [selectedDate, setSelectedDate] = useState('2026-10-10');
@@ -321,6 +323,16 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {onOpenAtendimento && (
+                          <button
+                            onClick={() => onOpenAtendimento(app.pacienteId, app.medicoId)}
+                            className="px-2.5 py-1.5 bg-sky-700/30 hover:bg-sky-600 text-sky-300 hover:text-white rounded text-xs font-semibold border border-sky-600/40 transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Iniciar Atendimento Clínico & Prontuário"
+                          >
+                            <Stethoscope className="w-3.5 h-3.5" />
+                            <span>Atender</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => onOpenCreatePrescription(app.pacienteId, app.medicoId)}
                           className="px-2.5 py-1.5 bg-emerald-700/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded text-xs font-semibold border border-emerald-600/40 transition-colors flex items-center gap-1 cursor-pointer"

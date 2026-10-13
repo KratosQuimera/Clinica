@@ -1,11 +1,19 @@
 import logging
 from typing import Optional, List, Dict, Any, Tuple
-from clinestudo_desktop.modelo_connection.conexao_bd import conexao_bd
-from clinestudo_desktop.modelo_beans.beans import (
-    BeansMedico, BeansPacientes, BeansUsuario, BeansEnfermeira, BeansAgenda
-)
-from clinestudo_desktop.auth.hasher import hash_password, verify_password
-from clinestudo_desktop.services.validators import validar_cpf, formatar_cpf, validar_crm, validar_coren
+try:
+    from modelo_connection.conexao_bd import conexao_bd
+    from modelo_beans.beans import (
+        BeansMedico, BeansPacientes, BeansUsuario, BeansEnfermeira, BeansAgenda
+    )
+    from auth.hasher import hash_password, verify_password
+    from services.validators import validar_cpf, formatar_cpf, validar_crm, validar_coren
+except ImportError:
+    from clinestudo_desktop.modelo_connection.conexao_bd import conexao_bd
+    from clinestudo_desktop.modelo_beans.beans import (
+        BeansMedico, BeansPacientes, BeansUsuario, BeansEnfermeira, BeansAgenda
+    )
+    from clinestudo_desktop.auth.hasher import hash_password, verify_password
+    from clinestudo_desktop.services.validators import validar_cpf, formatar_cpf, validar_crm, validar_coren
 
 logger = logging.getLogger("clinestudo.daos")
 

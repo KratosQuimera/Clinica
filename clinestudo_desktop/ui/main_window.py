@@ -13,13 +13,23 @@ try:
     HAS_PYSIDE = True
 except ImportError:
     HAS_PYSIDE = False
-    class QMainWindow: pass
+    class _DummyWidget:
+        def __init__(self, *args, **kwargs): pass
+        def __getattr__(self, name): return lambda *args, **kwargs: None
+    QMainWindow = QWidget = QVBoxLayout = QHBoxLayout = QPushButton = QLabel = QStackedWidget = QStatusBar = QMessageBox = QFrame = Qt = QTimer = QIcon = QKeySequence = QShortcut = _DummyWidget
 
-from clinestudo_desktop.config.settings import settings
-from clinestudo_desktop.ui.theme import MODERN_QSS
-from clinestudo_desktop.ui.views import MedicosView, PacientesView, AgendaView
-from clinestudo_desktop.auth.session import gerenciador_sessao
-from clinestudo_desktop.database.connection import db_manager
+try:
+    from config.settings import settings
+    from ui.theme import MODERN_QSS
+    from ui.views import MedicosView, PacientesView, AgendaView
+    from auth.session import gerenciador_sessao
+    from database.connection import db_manager
+except ImportError:
+    from clinestudo_desktop.config.settings import settings
+    from clinestudo_desktop.ui.theme import MODERN_QSS
+    from clinestudo_desktop.ui.views import MedicosView, PacientesView, AgendaView
+    from clinestudo_desktop.auth.session import gerenciador_sessao
+    from clinestudo_desktop.database.connection import db_manager
 
 class MainWindow(QMainWindow):
     def __init__(self):

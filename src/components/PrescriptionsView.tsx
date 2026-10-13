@@ -64,13 +64,20 @@ export const PrescriptionsView: React.FC<PrescriptionsViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => onOpenCreatePrescription()}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-emerald-950 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nova Prescrição Médica</span>
-        </button>
+        {currentUser.perfil === 'ADMINISTRADOR' || currentUser.perfil === 'MEDICO' ? (
+          <button
+            onClick={() => onOpenCreatePrescription()}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-emerald-950 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nova Prescrição Médica</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 border border-slate-700 text-slate-400 rounded-lg text-xs font-medium cursor-not-allowed" title="Apenas administradores e médicos podem alterar receitas">
+            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span>Apenas Médicos / Administradores Prescrevem</span>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}

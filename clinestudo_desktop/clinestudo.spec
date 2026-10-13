@@ -7,22 +7,50 @@ e recursos estáticos necessários para execução autônoma no Windows 10/11.
 import os
 import sys
 
+# Diretório base absoluto do projeto (funciona independente de onde o pyinstaller for executado)
+if 'SPECPATH' in globals():
+    spec_dir = os.path.abspath(SPECPATH)
+elif '__file__' in globals():
+    spec_dir = os.path.abspath(os.path.dirname(__file__))
+else:
+    spec_dir = os.path.abspath(os.path.dirname('main.py') or '.')
+
 block_cipher = None
 
-# Diretório base absoluto
-spec_dir = os.path.abspath(os.path.dirname('main.py') or '.')
+# Função auxiliar para garantir inclusão apenas de arquivos existentes com caminhos absolutos
+def safe_data(src_rel, dst_rel):
+    p1 = os.path.join(spec_dir, src_rel)
+    if os.path.exists(p1):
+        return (p1, dst_rel)
+    p2 = os.path.join(os.getcwd(), src_rel)
+    if os.path.exists(p2):
+        return (p2, dst_rel)
+    return None
 
-# Coleta abrangente de plugins e binários do PySide6 (previne ausência de qwindows.dll)
+# Coleta abrangente de plugins e binários do PySide6 se instalado
+pyside_datas, pyside_binaries, pyside_hidden = [], [], []
+has_pyside = False
 try:
+    import PySide6
+    has_pyside = True
     from PyInstaller.utils.hooks import collect_all
     pyside_datas, pyside_binaries, pyside_hidden = collect_all('PySide6')
 except Exception:
     pyside_datas, pyside_binaries, pyside_hidden = [], [], []
+    has_pyside = False
 
-extra_datas = [
+extra_datas = []
+for src, dst in [
     ('database/schema.sql', 'database'),
     ('database/v1_legacy_migration.sql', 'database'),
-] + pyside_datas
+    ('web_dist', 'web_dist'),
+    ('.env.example', '.'),
+]:
+    d = safe_data(src, dst)
+    if d:
+        extra_datas.append(d)
+
+extra_datas.extend(pyside_datas)
 
 extra_hidden = [
     'ctypes',
@@ -32,6 +60,12 @@ extra_hidden = [
     'hashlib',
     'hmac',
     'secrets',
+    'mimetypes',
+    'http.server',
+    'threading',
+    'socket',
+    'subprocess',
+    'webbrowser',
     'PySide6',
     'PySide6.QtCore',
     'PySide6.QtGui',
@@ -62,14 +96,23 @@ extra_hidden = [
     'ui.login_window',
     'ui.main_window',
     'ui.views',
+    'ui.desktop_webapp',
+    'ui.tkinter_app',
+    'tkinter',
+    'tkinter.ttk',
+    'tkinter.messagebox',
     'models',
     'models.entities',
     'repositories',
     'repositories.repositories',
 ] + pyside_hidden
 
+main_script = os.path.join(spec_dir, 'main.py')
+if not os.path.exists(main_script):
+    main_script = 'main.py'
+
 a = Analysis(
-    ['main.py'],
+    [main_script],
     pathex=[spec_dir, os.path.dirname(spec_dir)],
     binaries=pyside_binaries,
     datas=extra_datas,
@@ -86,7 +129,7 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# 1. Executável Padrão (Sem Console / Gráfico)
+# 1. Executável Padrão (Sem Console / Gráfico Windows)
 exe = EXE(
     pyz,
     a.scripts,
@@ -96,27 +139,8 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    console=False,  # Sem console; erros capturados via ctypes MessageBox
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
-
-# 2. Executável de Depuração (Com Console Ativo para diagnóstico)
-exe_debug = EXE(
-    pyz,
-    a.scripts,
-    [],
-    exclude_binaries=True,
-    name='ClinEstudo_Debug',
-    debug=True,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=False,
-    console=True,  # Mantém janela de console aberta para exibir mensagens
+    upx=False,  # UPX desativado para evitar corrupção de DLLs Qt no Windows
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -126,12 +150,11 @@ exe_debug = EXE(
 
 coll = COLLECT(
     exe,
-    exe_debug,
     a.binaries,
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='ClinEstudo',
 )

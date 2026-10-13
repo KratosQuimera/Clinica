@@ -14,11 +14,11 @@ from clinestudo_desktop.auth.hasher import hash_password, verify_password
 from clinestudo_desktop.auth.permissions import usuario_possui_permissao, PerfilUsuario
 from clinestudo_desktop.services.validators import validar_cpf, validar_crm, validar_coren, formatar_cpf
 from clinestudo_desktop.services.services import (
-    AuthService, MedicoService, EnfermeiroService, PacienteService, AgendaService
+    AuthService, MedicoService, EnfermeiroService, PacienteService, AgendaService, ReceitaService, AtendimentoService
 )
 from clinestudo_desktop.repositories.repositories import (
     UsuarioRepository, MedicoRepository, EnfermeiroRepository,
-    PacienteRepository, AgendamentoRepository, AuditoriaRepository
+    PacienteRepository, AgendamentoRepository, AuditoriaRepository, ReceitaRepository, AtendimentoRepository
 )
 # Módulos no formato NetBeans
 from clinestudo_desktop.modelo_beans.beans import (
@@ -42,6 +42,10 @@ class TestClinEstudoSuite(unittest.TestCase):
         cls.dao_medico = DaoMedico()
         cls.dao_pacientes = DaoPacientes()
         cls.dao_usuario = DaoUsuario()
+        cls.receita_service = ReceitaService()
+        cls.receita_repo = ReceitaRepository()
+        cls.atendimento_service = AtendimentoService()
+        cls.atendimento_repo = AtendimentoRepository()
 
     # 1. TESTES DE AUTENTICAÇÃO E BLOQUEIO DE SEGURANÇA
     def test_01_login_autorizado(self):
@@ -228,5 +232,166 @@ class TestClinEstudoSuite(unittest.TestCase):
         ok, msg = self.dao_pacientes.salvar(pac)
         self.assertTrue(ok)
 
+    def test_15_emissao_receita_medica_qr_code(self):
+        medicos = self.medico_service.repo.listar_todos()
+        pacientes = self.paciente_service.repo.listar_todos()
+        self.assertGreater(len(medicos), 0)
+        self.assertGreater(len(pacientes), 0)
+
+        id_med = medicos[0]["id"]
+        id_pac = pacientes[0]["id"]
+
+        medicamentos = [
+            {"nome": "Amoxicilina 500mg", "posologia": "1 cápsula a cada 8h por 7 dias", "tipo": "Antibiótico"},
+            {"nome": "Dipirona 500mg", "posologia": "1 comprimido se houver febre ou dor", "tipo": "Analgésico"}
+        ]
+        ok_rec, msg_rec, rec_data = self.receita_service.emitir_receita(
+            paciente_id=id_pac,
+            medico_id=id_med,
+            medicamentos=medicamentos,
+            orientacoes_gerais="Ingerir com bastante água. Evitar jejum.",
+            validade_dias=30,
+            usuario_responsavel="admin"
+        )
+        self.assertTrue(ok_rec, f"Falha na emissão da receita: {msg_rec}")
+        self.assertIsNotNone(rec_data)
+        self.assertTrue(rec_data["codigo_autenticidade"].startswith("REC-"))
+        self.assertIn("https://clinestudo.com.br/validar/", rec_data["qr_code_payload"])
+
+        buscada = self.receita_repo.buscar_por_codigo(rec_data["codigo_autenticidade"])
+        self.assertIsNotNone(buscada)
+        self.assertEqual(buscada["paciente_id"], id_pac)
+        self.assertEqual(buscada["medico_id"], id_med)
+
+    def test_16_rastreamento_whatsapp_e_impressao_receita(self):
+        rec_list = self.receita_repo.listar_todas()
+        self.assertGreater(len(rec_list), 0)
+        rec_id = rec_list[0]["id"]
+
+        self.assertTrue(self.receita_service.registrar_envio_whatsapp(rec_id, "admin"))
+        self.assertTrue(self.receita_service.registrar_impressao(rec_id, "admin"))
+
+        rec_atualizada = self.receita_repo.buscar_por_codigo(rec_list[0]["codigo_autenticidade"])
+        self.assertEqual(rec_atualizada["enviado_whatsapp"], 1)
+        self.assertEqual(rec_atualizada["impresso"], 1)
+
+    def test_17_resiliencia_inicializacao_e_diagnostico(self):
+        health = db_manager.check_health()
+        self.assertTrue(health["ok"])
+        self.assertIn(health["engine"], ["sqlite", "postgresql"])
+
+    # 4. TESTES DA NOVA TABELA DE ATENDIMENTO E CONTROLE DE PERMISSÕES MÉDICAS
+    def test_18_atendimento_permissao_exclusiva_medico(self):
+        """Regra estrita: SOMENTE os médicos poderão alterar chamado atendimento."""
+        pacientes = self.paciente_service.repo.listar_todos()
+        medicos = self.medico_service.repo.listar_todos()
+        id_pac = pacientes[0]["id"]
+        id_med = medicos[0]["id"]
+
+        # 1. Usuário RECEPCIONISTA tenta criar atendimento -> DEVE SER RECUSADO
+        ok_rec, msg_rec, id_atend_rec = self.atendimento_service.registrar_atendimento(
+            paciente_id=id_pac,
+            medico_id=id_med,
+            queixa_principal="Dor de garganta",
+            hipotese_diagnostica="Faringite",
+            perfil_usuario="RECEPCIONISTA",
+            usuario_login="recepcao"
+        )
+        self.assertFalse(ok_rec)
+        self.assertIn("somente profissionais médicos", msg_rec)
+
+        # 2. Usuário ENFERMEIRO tenta criar atendimento -> DEVE SER RECUSADO
+        ok_enf, msg_enf, id_atend_enf = self.atendimento_service.registrar_atendimento(
+            paciente_id=id_pac,
+            medico_id=id_med,
+            queixa_principal="Cefaleia",
+            hipotese_diagnostica="Enxaqueca",
+            perfil_usuario="ENFERMEIRO",
+            usuario_login="enf.carla"
+        )
+        self.assertFalse(ok_enf)
+        self.assertIn("somente profissionais médicos", msg_enf)
+
+        # 3. Usuário MÉDICO cria atendimento -> DEVE SER APROVADO COM SUCESSO
+        ok_med, msg_med, id_atend_med = self.atendimento_service.registrar_atendimento(
+            paciente_id=id_pac,
+            medico_id=id_med,
+            queixa_principal="Picos hipertensivos e cefaleia occipital",
+            hipotese_diagnostica="Hipertensão Arterial Sistêmica Estágio 1",
+            motivo_consulta="Acompanhamento cardiológico",
+            anamnese="Paciente refere picos de PA 150/95 em casa nos últimos dias.",
+            sinais_vitais={"pressaoArterial": "140/90", "frequenciaCardiaca": "76"},
+            cid10="I10",
+            conduta_evolucao="Iniciada Losartana 50mg pela manhã e dieta hipossódica.",
+            perfil_usuario="MEDICO",
+            usuario_login="medico.silva"
+        )
+        self.assertTrue(ok_med, f"Médico deveria conseguir registrar atendimento: {msg_med}")
+        self.assertIsNotNone(id_atend_med)
+
+    def test_19_atendimento_vinculado_paciente_e_historico_consultas(self):
+        """Verifica que o atendimento é vinculado ao paciente e o médico pode consultar o histórico prévio."""
+        pacientes = self.paciente_service.repo.listar_todos()
+        medicos = self.medico_service.repo.listar_todos()
+        id_pac = pacientes[0]["id"]
+        id_med = medicos[0]["id"]
+
+        # Registra um segundo atendimento para o mesmo paciente
+        ok, msg, novo_id = self.atendimento_service.registrar_atendimento(
+            paciente_id=id_pac,
+            medico_id=id_med,
+            queixa_principal="Retorno de avaliação com diário pressórico normalizado",
+            hipotese_diagnostica="HAS controlada em uso de Losartana",
+            cid10="I10",
+            conduta_evolucao="Mantida dose medicamentosa. Retorno em 60 dias.",
+            perfil_usuario="MEDICO",
+            usuario_login="medico.silva"
+        )
+        self.assertTrue(ok)
+
+        # Médico consulta o prontuário e histórico de consultas anteriores deste paciente
+        historico = self.atendimento_service.consultar_historico_paciente(id_pac)
+        self.assertGreaterEqual(len(historico), 2)
+        
+        # Verifica que os dados clínicos foram vinculados e preservados
+        primeiro = historico[0]
+        self.assertEqual(primeiro["paciente_id"], id_pac)
+        self.assertIsNotNone(primeiro["hipotese_diagnostica"])
+        self.assertIsNotNone(primeiro["nome_paciente"])
+        self.assertIsNotNone(primeiro["nome_medico"])
+
+    def test_20_permissao_exclusiva_alterar_receitas_admin_e_medico(self):
+        """Regra estrita: somente os administradores e médicos alteram receitas."""
+        pacientes = self.paciente_service.repo.listar_todos()
+        medicos = self.medico_service.repo.listar_todos()
+        id_pac = pacientes[0]["id"]
+        id_med = medicos[0]["id"]
+        meds = [{"nome": "Paracetamol 750mg", "posologia": "1 comprimido se dor", "tipo": "Analgésico"}]
+
+        # Recepcionista tenta emitir receita -> Recusado
+        ok_rec, msg_rec, _ = self.receita_service.emitir_receita(
+            paciente_id=id_pac, medico_id=id_med, medicamentos=meds,
+            perfil_usuario="RECEPCIONISTA", usuario_responsavel="recepcao"
+        )
+        self.assertFalse(ok_rec)
+        self.assertIn("somente administradores e médicos", msg_rec)
+
+        # Médico emite receita -> Autorizado
+        ok_med, msg_med, rec_med = self.receita_service.emitir_receita(
+            paciente_id=id_pac, medico_id=id_med, medicamentos=meds,
+            perfil_usuario="MEDICO", usuario_responsavel="medico.silva"
+        )
+        self.assertTrue(ok_med)
+        self.assertIsNotNone(rec_med)
+
+        # Administrador emite receita -> Autorizado
+        ok_adm, msg_adm, rec_adm = self.receita_service.emitir_receita(
+            paciente_id=id_pac, medico_id=id_med, medicamentos=meds,
+            perfil_usuario="ADMINISTRADOR", usuario_responsavel="admin"
+        )
+        self.assertTrue(ok_adm)
+        self.assertIsNotNone(rec_adm)
+
 if __name__ == "__main__":
     unittest.main()
+

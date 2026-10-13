@@ -88,3 +88,54 @@ class Auditoria:
     detalhes: Optional[str] = None
     ip_origem: str = "127.0.0.1"
     criado_em: Optional[datetime] = None
+
+@dataclass
+class Receita:
+    id: Optional[int] = None
+    paciente_id: int = 0
+    medico_id: int = 0
+    codigo_autenticidade: str = ""
+    data_emissao: str = ""
+    hora_emissao: str = ""
+    validade_dias: int = 30
+    medicamentos_json: str = "[]"
+    orientacoes_gerais: Optional[str] = None
+    enviado_whatsapp: bool = False
+    impresso: bool = False
+    criado_em: Optional[datetime] = None
+    # Atributos de conveniencia em consultas
+    nome_paciente: Optional[str] = None
+    nome_medico: Optional[str] = None
+    crm_medico: Optional[str] = None
+
+@dataclass
+class Atendimento:
+    id: Optional[int] = None
+    paciente_id: int = 0
+    medico_id: int = 0
+    agendamento_id: Optional[int] = None
+    data_hora: str = ""
+    status: str = "FINALIZADO"
+    motivo_consulta: str = ""
+    queixa_principal: str = ""
+    anamnese: Optional[str] = None
+    historico_familiar_social: Optional[str] = None
+    sinais_vitais_json: str = "{}"
+    exame_fisico: Optional[str] = None
+    hipotese_diagnostica: str = ""
+    cid10: Optional[str] = None
+    conduta_evolucao: Optional[str] = None
+    prescricoes_ids_json: str = "[]"
+    retorno_em_dias: Optional[int] = None
+    observacoes_retorno: Optional[str] = None
+    criado_em: Optional[datetime] = None
+    atualizado_em: Optional[datetime] = None
+    # Joins de conveniência para exibição
+    nome_paciente: Optional[str] = None
+    cpf_paciente: Optional[str] = None
+    telefone_paciente: Optional[str] = None
+    alergias_paciente: Optional[str] = None
+    nome_medico: Optional[str] = None
+    crm_medico: Optional[str] = None
+    especialidade_medico: Optional[str] = None
+

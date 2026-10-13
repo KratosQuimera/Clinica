@@ -149,3 +149,31 @@ CREATE INDEX IF NOT EXISTS idx_receitas_paciente ON receitas(paciente_id);
 CREATE INDEX IF NOT EXISTS idx_receitas_medico ON receitas(medico_id);
 CREATE INDEX IF NOT EXISTS idx_receitas_codigo ON receitas(codigo_autenticidade);
 
+-- 8. TABELA DE ATENDIMENTO MÉDICO (PRONTUÁRIO CLÍNICO)
+CREATE TABLE IF NOT EXISTS atendimentos (
+    id SERIAL PRIMARY KEY,
+    paciente_id INT NOT NULL REFERENCES pacientes(id) ON DELETE RESTRICT,
+    medico_id INT NOT NULL REFERENCES medicos(id) ON DELETE RESTRICT,
+    agendamento_id INT NULL REFERENCES agendamentos(id) ON DELETE SET NULL,
+    data_hora VARCHAR(30) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'FINALIZADO' CHECK (status IN ('EM_ANDAMENTO', 'FINALIZADO', 'CANCELADO')),
+    motivo_consulta VARCHAR(200) NOT NULL,
+    queixa_principal VARCHAR(250) NOT NULL,
+    anamnese TEXT,
+    historico_familiar_social TEXT,
+    sinais_vitais_json TEXT,
+    exame_fisico TEXT,
+    hipotese_diagnostica VARCHAR(250) NOT NULL,
+    cid10 VARCHAR(100),
+    conduta_evolucao TEXT,
+    prescricoes_ids_json TEXT,
+    retorno_em_dias INT,
+    observacoes_retorno TEXT,
+    criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_atendimentos_paciente ON atendimentos(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_atendimentos_medico ON atendimentos(medico_id);
+CREATE INDEX IF NOT EXISTS idx_atendimentos_status ON atendimentos(status);
+

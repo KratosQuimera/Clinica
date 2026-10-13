@@ -56,6 +56,7 @@ export const DesktopWindow: React.FC<DesktopWindowProps> = ({
     { id: 'enfermeiros', label: 'Cad. Enfermeiras', icon: Activity, roles: ['ADMINISTRADOR', 'ENFERMEIRO', 'RECEPCIONISTA'] },
     { id: 'pacientes', label: 'Cad. Pacientes', icon: Users, roles: ['ADMINISTRADOR', 'MEDICO', 'ENFERMEIRO', 'RECEPCIONISTA'] },
     { id: 'agenda', label: 'Agenda de Consultas', icon: Calendar, roles: ['ADMINISTRADOR', 'MEDICO', 'ENFERMEIRO', 'RECEPCIONISTA'] },
+    { id: 'atendimentos', label: 'Atendimento Médico (Prontuário)', icon: Stethoscope, roles: ['ADMINISTRADOR', 'MEDICO'] },
     { id: 'receitas', label: 'Receitas Médicas (QR Code)', icon: Pill, roles: ['ADMINISTRADOR', 'MEDICO', 'ENFERMEIRO', 'RECEPCIONISTA'] },
     { id: 'relatorios', label: 'Relatórios & Exportação', icon: FileText, roles: ['ADMINISTRADOR', 'MEDICO', 'RECEPCIONISTA'] },
     { id: 'auditoria', label: 'Auditoria & LGPD', icon: ShieldCheck, roles: ['ADMINISTRADOR'] },
@@ -162,8 +163,13 @@ export const DesktopWindow: React.FC<DesktopWindowProps> = ({
             Atendimento
           </button>
           {openMenu === 'atendimento' && (
-            <div className="absolute top-full left-0 mt-1 w-52 bg-slate-900 border border-slate-700 rounded shadow-2xl py-1 text-xs z-50">
-              <button onClick={() => handleSelectMenuItem('agenda')} className="w-full text-left px-3 py-1.5 hover:bg-slate-800 hover:text-amber-300 flex items-center gap-2">
+            <div className="absolute top-full left-0 mt-1 w-60 bg-slate-900 border border-slate-700 rounded shadow-2xl py-1 text-xs z-50">
+              {(currentUser.perfil === 'MEDICO' || currentUser.perfil === 'ADMINISTRADOR') && (
+                <button onClick={() => handleSelectMenuItem('atendimentos')} className="w-full text-left px-3 py-1.5 hover:bg-slate-800 hover:text-sky-300 flex items-center gap-2">
+                  <Stethoscope className="w-3.5 h-3.5 text-sky-400" /> Atendimento Médico (Prontuário)
+                </button>
+              )}
+              <button onClick={() => handleSelectMenuItem('agenda')} className="w-full text-left px-3 py-1.5 hover:bg-slate-800 hover:text-amber-300 flex items-center gap-2 border-t border-slate-800 mt-0.5">
                 <Calendar className="w-3.5 h-3.5 text-amber-400" /> Agenda Consultas
               </button>
               <button onClick={() => handleSelectMenuItem('receitas')} className="w-full text-left px-3 py-1.5 hover:bg-slate-800 hover:text-emerald-300 flex items-center gap-2 border-t border-slate-800 mt-0.5">

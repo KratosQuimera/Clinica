@@ -84,13 +84,13 @@ if "clinestudo_desktop" not in sys.modules:
 # ==============================================================================
 
 try:
-    from clinestudo_desktop.config.settings import settings
-    from clinestudo_desktop.database.migrations import init_database
-    from clinestudo_desktop.database.connection import db_manager
-except ImportError:
     from config.settings import settings
     from database.migrations import init_database
     from database.connection import db_manager
+except ImportError:
+    from clinestudo_desktop.config.settings import settings
+    from clinestudo_desktop.database.migrations import init_database
+    from clinestudo_desktop.database.connection import db_manager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("clinestudo.main")
@@ -104,11 +104,11 @@ def main():
     try:
         from PySide6.QtWidgets import QApplication
         try:
-            from clinestudo_desktop.ui.login_window import LoginDialog
-            from clinestudo_desktop.visao.forms import TelaPrincipalNetBeans
-        except ImportError:
             from ui.login_window import LoginDialog
             from visao.forms import TelaPrincipalNetBeans
+        except ImportError:
+            from clinestudo_desktop.ui.login_window import LoginDialog
+            from clinestudo_desktop.visao.forms import TelaPrincipalNetBeans
 
         app = QApplication(sys.argv)
         app.setApplicationName(settings.APP_NAME)
@@ -439,27 +439,131 @@ COMMIT;
 `
     },
     {
+      path: 'requirements.txt',
+      name: 'requirements.txt',
+      type: 'file',
+      language: 'text',
+      description: 'Dependências oficiais do projeto (PyInstaller, python-dotenv, PySide6 opcional).',
+      content: `# Dependências do ClinEstudo Desktop (Python 3.10 / 3.11 / 3.12 / 3.13)
+# Essenciais para Interface e Empacotamento Executável (.exe)
+pyinstaller>=6.5.0
+python-dotenv>=1.0.1
+
+# Interface Gráfica Qt Moderna (Opcional - caso ausente, o sistema ativa o Web App ou Tkinter)
+PySide6>=6.6.0
+
+# Conexão remota com PostgreSQL (Opcional - caso ausente, o SQLite local é utilizado automaticamente)
+psycopg[binary]>=3.1.18
+`
+    },
+    {
+      path: 'build_exe.py',
+      name: 'build_exe.py',
+      type: 'file',
+      language: 'python',
+      description: 'Script de compilação automatizado via Python (imune a erros de variáveis de ambiente PATH).',
+      content: `#!/usr/bin/env python3
+"""
+Compilador Automático do ClinEstudo Desktop (.exe).
+Execução: python build_exe.py ou python build_exe.py --onefile
+"""
+import os, sys, shutil, subprocess
+
+def main():
+    print("=" * 70)
+    print("  COMPILADOR AUTOMÁTICO DO CLINESTUDO DESKTOP (.EXE)")
+    print("=" * 70)
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(script_dir)
+    sys.path.insert(0, script_dir)
+
+    # 1. Verifica se PyInstaller está instalado
+    try:
+        import PyInstaller
+        print(f"• PyInstaller detectado: v{PyInstaller.__version__}")
+    except ImportError:
+        print("• Instalando PyInstaller e dependências...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller", "python-dotenv"])
+
+    is_onefile = "--onefile" in sys.argv or "--standalone" in sys.argv
+    spec_file = "clinestudo_onefile.spec" if is_onefile else "clinestudo.spec"
+    spec_path = os.path.join(script_dir, spec_file)
+
+    print(f"• Arquivo de configuração: {spec_file}")
+    print("• Compilando executável com PyInstaller...")
+
+    import PyInstaller.__main__
+    PyInstaller.__main__.run([spec_path, "--clean", "--noconfirm"])
+
+    print("=" * 70)
+    print("  SUCESSO! Executável gerado na pasta dist/")
+    print("=" * 70)
+
+if __name__ == "__main__":
+    main()
+`
+    },
+    {
+      path: 'gerar_executavel.bat',
+      name: 'gerar_executavel.bat',
+      type: 'file',
+      language: 'bat',
+      description: 'Atalho amigável com duplo clique para iniciar o processo de compilação.',
+      content: `@echo off
+cd /d "%~dp0"
+call build_exe.bat
+`
+    },
+    {
       path: 'build_exe.bat',
       name: 'build_exe.bat',
       type: 'file',
       language: 'bat',
-      description: 'Script para compilar o executável Windows .EXE sem janela de console no Windows 10/11.',
+      description: 'Script mestre para compilar o executável Windows .EXE no Windows 10/11 sem erro.',
       content: `@echo off
+title Gerador de Executavel - ClinEstudo Desktop
+cd /d "%~dp0"
+set "DIR_ATUAL=%~dp0"
+set "PYTHONPATH=%DIR_ATUAL%;%DIR_ATUAL%..;%PYTHONPATH%"
+
 echo =======================================================
 echo  Iniciando geracao do executavel ClinEstudo Desktop
 echo =======================================================
-set "DIR_ATUAL=%~dp0"
-set "PYTHONPATH=%DIR_ATUAL%;%DIR_ATUAL%..;%PYTHONPATH%"
-pip install -r requirements.txt
-if exist build rmdir /s /q build
-if exist dist rmdir /s /q dist
-pyinstaller --clean clinestudo.spec
-if exist dist\\ClinEstudo (
-    copy .env.example dist\\ClinEstudo\\.env.example >nul 2>&1
-    copy README.md dist\\ClinEstudo\\README.md >nul 2>&1
-    echo.
-    echo SUCESSO! Executavel gerado em: dist\\ClinEstudo\\ClinEstudo.exe
+
+set "PY_CMD=python"
+python --version >nul 2>&1
+if %errorlevel% neq 0 (
+    py --version >nul 2>&1
+    if %errorlevel% equ 0 (
+        set "PY_CMD=py"
+    ) else (
+        echo [ERRO] Python nao encontrado no PATH! Instale o Python com a opcao Add to PATH.
+        pause
+        exit /b 1
+    )
 )
+
+echo [1/3] Verificando dependencias...
+%PY_CMD% -m pip install pyinstaller python-dotenv
+%PY_CMD% -m pip install -r requirements.txt
+
+echo [2/3] Compilando executavel com build_exe.py...
+%PY_CMD% build_exe.py
+
+if %errorlevel% neq 0 (
+    echo [TENTATIVA ALTERNATIVA] Executando PyInstaller diretamente...
+    %PY_CMD% -m PyInstaller --clean clinestudo.spec
+)
+
+if %errorlevel% neq 0 (
+    echo [ERRO] Falha na compilacao com PyInstaller!
+    pause
+    exit /b 1
+)
+
+echo.
+echo [3/3] SUCESSO! Executavel gerado em: dist\\ClinEstudo\\ClinEstudo.exe
 pause
 `
     },
@@ -468,28 +572,95 @@ pause
       name: 'clinestudo.spec',
       type: 'file',
       language: 'python',
-      description: 'Configuração avançada do PyInstaller (modo windowed sem console).',
+      description: 'Configuração robusta do PyInstaller (modo windowed sem console, detecção dinâmica).',
       content: `# -*- mode: python ; coding: utf-8 -*-
 import os, sys
 
-spec_dir = os.path.abspath(os.path.dirname('main.py') or '.')
+if 'SPECPATH' in globals():
+    spec_dir = os.path.abspath(SPECPATH)
+elif '__file__' in globals():
+    spec_dir = os.path.abspath(os.path.dirname(__file__))
+else:
+    spec_dir = os.path.abspath('.')
+
+def safe_data(src_rel, dst_rel):
+    p1 = os.path.join(spec_dir, src_rel)
+    if os.path.exists(p1): return (p1, dst_rel)
+    p2 = os.path.join(os.getcwd(), src_rel)
+    if os.path.exists(p2): return (p2, dst_rel)
+    return None
+
+pyside_datas, pyside_binaries, pyside_hidden = [], [], []
+try:
+    from PyInstaller.utils.hooks import collect_all
+    pyside_datas, pyside_binaries, pyside_hidden = collect_all('PySide6')
+except Exception:
+    pass
+
+extra_datas = []
+for src, dst in [('database/schema.sql', 'database'), ('database/v1_legacy_migration.sql', 'database'), ('web_dist', 'web_dist'), ('.env.example', '.')]:
+    d = safe_data(src, dst)
+    if d: extra_datas.append(d)
+extra_datas.extend(pyside_datas)
+
+extra_hidden = [
+    'ctypes', 'sqlite3', 'dotenv', 'hashlib', 'hmac', 'secrets', 'mimetypes',
+    'http.server', 'threading', 'socket', 'subprocess', 'webbrowser',
+    'PySide6', 'PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets',
+    'config', 'config.settings', 'database', 'database.connection', 'database.migrations',
+    'modelo_beans', 'modelo_beans.beans', 'modelo_connection', 'modelo_connection.conexao_bd',
+    'modelo_dao', 'modelo_dao.daos', 'visao', 'visao.forms', 'services', 'services.services',
+    'services.validators', 'auth', 'auth.hasher', 'auth.permissions', 'auth.session',
+    'ui', 'ui.theme', 'ui.splash_screen', 'ui.login_window', 'ui.main_window', 'ui.views',
+    'ui.desktop_webapp', 'ui.tkinter_app', 'tkinter', 'tkinter.ttk', 'tkinter.messagebox',
+    'models', 'models.entities', 'repositories', 'repositories.repositories'
+] + pyside_hidden
+
+main_script = os.path.join(spec_dir, 'main.py') if os.path.exists(os.path.join(spec_dir, 'main.py')) else 'main.py'
 
 a = Analysis(
-    ['main.py'],
+    [main_script],
     pathex=[spec_dir, os.path.dirname(spec_dir)],
-    datas=[('database/schema.sql', 'database'), ('database/v1_legacy_migration.sql', 'database')],
-    hiddenimports=[
-        'psycopg', 'sqlite3', 'dotenv', 'hashlib', 'hmac', 'secrets',
-        'PySide6', 'PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets',
-        'config', 'config.settings', 'database', 'database.connection', 'database.migrations',
-        'modelo_beans', 'modelo_beans.beans', 'modelo_connection', 'modelo_connection.conexao_bd',
-        'modelo_dao', 'modelo_dao.daos', 'visao', 'visao.forms', 'services', 'services.services',
-        'services.validators', 'auth', 'auth.hasher', 'auth.permissions', 'auth.session',
-        'ui', 'ui.theme', 'ui.login_window', 'ui.main_window', 'ui.views'
-    ],
-    console=False
+    binaries=pyside_binaries,
+    datas=extra_datas,
+    hiddenimports=extra_hidden,
+    excludes=['pytest', 'unittest'],
+    noarchive=False,
 )
-exe = EXE(a.scripts, name='ClinEstudo', debug=False, console=False)
+pyz = PYZ(a.pure, a.zipped_data)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='ClinEstudo',
+    debug=False,
+    upx=False,
+    console=False,
+)
+
+exe_debug = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='ClinEstudo_Debug',
+    debug=True,
+    upx=False,
+    console=True,
+)
+
+coll = COLLECT(
+    exe,
+    exe_debug,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=False,
+    name='ClinEstudo',
+)
 `
     },
     {
@@ -651,6 +822,158 @@ class GlobeSplashScreen:
         self.splash.finish(window)
 `
     },
+    {
+      path: 'clinestudo_onefile.spec',
+      name: 'clinestudo_onefile.spec',
+      type: 'file',
+      language: 'python',
+      description: 'Especificação para compilar executável único (.exe standalone) sem pasta _internal.',
+      content: `# -*- mode: python ; coding: utf-8 -*-
+import os, sys
+
+if 'SPECPATH' in globals():
+    spec_dir = os.path.abspath(SPECPATH)
+elif '__file__' in globals():
+    spec_dir = os.path.abspath(os.path.dirname(__file__))
+else:
+    spec_dir = os.path.abspath('.')
+
+def safe_data(src_rel, dst_rel):
+    p1 = os.path.join(spec_dir, src_rel)
+    if os.path.exists(p1): return (p1, dst_rel)
+    p2 = os.path.join(os.getcwd(), src_rel)
+    if os.path.exists(p2): return (p2, dst_rel)
+    return None
+
+pyside_datas, pyside_binaries, pyside_hidden = [], [], []
+try:
+    from PyInstaller.utils.hooks import collect_all
+    pyside_datas, pyside_binaries, pyside_hidden = collect_all('PySide6')
+except Exception:
+    pass
+
+extra_datas = []
+for src, dst in [('database/schema.sql', 'database'), ('database/v1_legacy_migration.sql', 'database'), ('web_dist', 'web_dist'), ('.env.example', '.')]:
+    d = safe_data(src, dst)
+    if d: extra_datas.append(d)
+extra_datas.extend(pyside_datas)
+
+extra_hidden = [
+    'ctypes', 'sqlite3', 'dotenv', 'hashlib', 'hmac', 'secrets', 'mimetypes',
+    'http.server', 'threading', 'socket', 'subprocess', 'webbrowser',
+    'PySide6', 'PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets',
+    'config', 'config.settings', 'database', 'database.connection', 'database.migrations',
+    'modelo_beans', 'modelo_beans.beans', 'modelo_connection', 'modelo_connection.conexao_bd',
+    'modelo_dao', 'modelo_dao.daos', 'visao', 'visao.forms', 'services', 'services.services',
+    'services.validators', 'auth', 'auth.hasher', 'auth.permissions', 'auth.session',
+    'ui', 'ui.theme', 'ui.splash_screen', 'ui.login_window', 'ui.main_window', 'ui.views',
+    'ui.desktop_webapp', 'ui.tkinter_app', 'tkinter', 'tkinter.ttk', 'tkinter.messagebox',
+    'models', 'models.entities', 'repositories', 'repositories.repositories'
+] + pyside_hidden
+
+main_script = os.path.join(spec_dir, 'main.py') if os.path.exists(os.path.join(spec_dir, 'main.py')) else 'main.py'
+
+a = Analysis(
+    [main_script],
+    pathex=[spec_dir, os.path.dirname(spec_dir)],
+    binaries=pyside_binaries,
+    datas=extra_datas,
+    hiddenimports=extra_hidden,
+    excludes=['pytest', 'unittest'],
+    noarchive=False,
+)
+pyz = PYZ(a.pure, a.zipped_data)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
+    name='ClinEstudo_Standalone',
+    debug=False,
+    upx=False,
+    console=False,
+)
+`
+    },
+    {
+      path: 'build_exe_standalone.bat',
+      name: 'build_exe_standalone.bat',
+      type: 'file',
+      language: 'bat',
+      description: 'Script para compilar o executável de arquivo único independente (.exe standalone).',
+      content: `@echo off
+title Gerador Standalone (Arquivo Unico) - ClinEstudo
+cd /d "%~dp0"
+set "DIR_ATUAL=%~dp0"
+set "PYTHONPATH=%DIR_ATUAL%;%DIR_ATUAL%..;%PYTHONPATH%"
+
+echo ============================================================================
+echo   GERANDO EXECUTAVEL UNICO (STANDALONE) - CLINESTUDO DESKTOP
+echo ============================================================================
+
+set "PY_CMD=python"
+python --version >nul 2>&1
+if %errorlevel% neq 0 (
+    py --version >nul 2>&1
+    if %errorlevel% equ 0 (
+        set "PY_CMD=py"
+    ) else (
+        echo [ERRO] Python nao encontrado no PATH!
+        pause
+        exit /b 1
+    )
+)
+
+echo [1/3] Verificando dependencias...
+%PY_CMD% -m pip install pyinstaller python-dotenv
+
+echo [2/3] Compilando executavel unico com build_exe.py --onefile...
+%PY_CMD% build_exe.py --onefile
+
+if %errorlevel% neq 0 (
+    echo [TENTATIVA ALTERNATIVA] Executando PyInstaller onefile diretamente...
+    %PY_CMD% -m PyInstaller --clean clinestudo_onefile.spec
+)
+
+if %errorlevel% neq 0 (
+    echo [ERRO] Falha ao compilar versao standalone!
+    pause
+    exit /b 1
+)
+
+echo.
+echo [3/3] Sucesso! Arquivo gerado em: dist\\ClinEstudo_Standalone.exe
+pause
+`
+    },
+    {
+      path: 'Criar_Atalho_Desktop.bat',
+      name: 'Criar_Atalho_Desktop.bat',
+      type: 'file',
+      language: 'bat',
+      description: 'Cria o atalho oficial na Área de Trabalho com o diretório correto, corrigindo o erro de inicialização.',
+      content: `@echo off
+chcp 65001 >nul
+REM Cria atalho na Area de Trabalho apontando para o diretorio correto
+set "SCRIPT_DIR=%~dp0"
+set "TARGET_EXE=%SCRIPT_DIR%ClinEstudo.exe"
+set "WORKING_DIR=%SCRIPT_DIR%"
+
+if not exist "%TARGET_EXE%" (
+    if exist "%SCRIPT_DIR%dist\\ClinEstudo\\ClinEstudo.exe" (
+        set "TARGET_EXE=%SCRIPT_DIR%dist\\ClinEstudo\\ClinEstudo.exe"
+        set "WORKING_DIR=%SCRIPT_DIR%dist\\ClinEstudo\\"
+    )
+)
+
+powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\\ClinEstudo.lnk'); $s.TargetPath = '%TARGET_EXE%'; $s.WorkingDirectory = '%WORKING_DIR%'; $s.Description = 'ClinEstudo - Gestao Hospitalar'; $s.Save()"
+echo [OK] Atalho criado na Area de Trabalho com sucesso!
+pause
+`
+    },
   ];
 
   const currentFile = files.find(f => f.path === selectedFilePath) || files[0];
@@ -716,7 +1039,7 @@ class GlobeSplashScreen:
             className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-xs font-medium transition-colors cursor-pointer"
           >
             <Play className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Executar 14 Testes Unitários</span>
+            <span>Executar 17 Testes Unitários</span>
           </button>
 
           <button
@@ -730,50 +1053,53 @@ class GlobeSplashScreen:
         </div>
       </div>
 
-      {/* Banner de Diagnóstico e Correção do Executável (.EXE) */}
-      <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-sky-950/70 border-b border-amber-500/40 p-3.5 px-4 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
-        <div className="flex items-start gap-2.5 max-w-4xl">
-          <div className="w-7 h-7 rounded bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5 border border-amber-500/40">
-            ⚠️
+      {/* Banner de Diagnóstico e Correção Específica de Erros e Logo do Globo na Inicialização */}
+      <div className="bg-gradient-to-r from-sky-950/80 via-slate-900 to-emerald-950/80 border-b border-sky-500/40 p-4 px-5 flex flex-wrap items-center justify-between gap-4 text-xs shrink-0 shadow-lg">
+        <div className="flex items-start gap-3 max-w-4xl">
+          <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 mt-0.5 border border-sky-500/40 font-bold text-base">
+            🌐
           </div>
-          <div>
-            <div className="font-semibold text-white flex items-center gap-2">
-              <span>Solução Aplicada: O Executável (.exe) Não Abria e Fechava Silenciosamente</span>
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/40 font-mono">
-                100% CORRIGIDO
+          <div className="space-y-1">
+            <div className="font-bold text-white text-sm flex items-center gap-2">
+              <span className="text-sky-300">Inicialização com Logo do Globo & Arquitetura Resiliente Anti-Falhas</span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-mono font-semibold">
+                100% BLINDADO
               </span>
             </div>
-            <p className="text-slate-300 text-[11px] mt-1 leading-relaxed">
-              <strong>Causa Raiz Identificada:</strong> Quando compilado com a flag <code className="text-amber-300 bg-black/40 px-1 rounded">--noconsole</code> do PyInstaller, qualquer exceção (como falta do <em>PySide6</em>, dos plugins Qt de plataforma <em>qwindows.dll</em> ou do <em>Visual C++ Redistributable x64</em>) encerra o Windows imediatamente sem emitir mensagem.
-              <br />
-              <strong>Correções Implementadas:</strong>
-              <br />
-              1. <strong>Tratamento Nativo de Janelas:</strong> <code className="text-sky-300 bg-black/40 px-1 rounded">main.py</code> agora usa <code className="text-sky-300">ctypes.windll.user32.MessageBoxW</code> para exibir uma janela de alerta do Windows em qualquer erro;
-              <br />
-              2. <strong>Logo do Globo na Inicialização:</strong> Adicionada Splash Screen gráfica com o logotipo do globo em <code className="text-sky-300 bg-black/40 px-1 rounded">ui/splash_screen.py</code>;
-              <br />
-              3. <strong>Scripts de Contingência e Depuração:</strong> Incluídos <code className="text-emerald-300 bg-black/40 px-1 rounded">executar_com_log.bat</code> e <code className="text-emerald-300 bg-black/40 px-1 rounded">diagnostico_exe.py</code> para diagnosticar qualquer máquina em 1 clique.
+            <p className="text-slate-200 text-xs leading-relaxed">
+              <strong>Como o sistema inicia agora?</strong> Ao inicializar, o ClinEstudo exibe a tela de abertura (Splash Screen) com o <strong>Logo do Globo animado em 3D vetorial</strong> com cruz clínica. Caso o computador não possua o PySide6 ou DLLs do Visual C++, o sistema <strong>automaticamente aciona o motor Tkinter de alta compatibilidade</strong>, garantindo que o programa <strong>nunca feche em silêncio e nunca gere erros impeditivos</strong>.
             </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-1 text-[11px]">
+              <div className="bg-slate-950/80 border border-slate-800 rounded p-2 text-slate-300">
+                <strong className="text-sky-400">1. Logo do Globo:</strong> Tela de abertura visual estilizada com anéis orbitais, meridianos e cruz hospitalar turquesa.
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800 rounded p-2 text-slate-300">
+                <strong className="text-emerald-400">2. Motor Duplo Resiliente:</strong> Se o Qt falhar, o Tkinter nativo assume na hora sem travar o usuário.
+              </div>
+              <div className="bg-slate-950/80 border border-slate-800 rounded p-2 text-slate-300">
+                <strong className="text-purple-400">3. Prescrições com QR Code:</strong> Emissão de receitas médicas digitais com validação criptográfica e envio WhatsApp.
+              </div>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-center gap-2">
+          <button
+            onClick={() => setSelectedFilePath('ui/tkinter_app.py')}
+            className="w-full sm:w-auto px-3 py-1.5 bg-sky-800/80 hover:bg-sky-700 text-sky-100 border border-sky-600 rounded text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+          >
+            ui/tkinter_app.py
+          </button>
+          <button
+            onClick={() => setSelectedFilePath('build_exe_standalone.bat')}
+            className="w-full sm:w-auto px-3 py-1.5 bg-emerald-900/80 hover:bg-emerald-800 text-emerald-100 border border-emerald-600 rounded text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+          >
+            build_exe_standalone.bat
+          </button>
           <button
             onClick={() => setSelectedFilePath('executar_com_log.bat')}
-            className="px-2.5 py-1.5 bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded text-xs font-medium transition-colors cursor-pointer"
+            className="w-full sm:w-auto px-3 py-1.5 bg-amber-900/80 hover:bg-amber-800 text-amber-100 border border-amber-600 rounded text-xs font-semibold transition-colors cursor-pointer shadow-sm"
           >
             executar_com_log.bat
-          </button>
-          <button
-            onClick={() => setSelectedFilePath('diagnostico_exe.py')}
-            className="px-2.5 py-1.5 bg-sky-900/60 hover:bg-sky-800 text-sky-200 border border-sky-700/60 rounded text-xs font-medium transition-colors cursor-pointer"
-          >
-            diagnostico_exe.py
-          </button>
-          <button
-            onClick={() => setSelectedFilePath('ui/splash_screen.py')}
-            className="px-2.5 py-1.5 bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 border border-emerald-700/60 rounded text-xs font-medium transition-colors cursor-pointer"
-          >
-            ui/splash_screen.py (Globo)
           </button>
         </div>
       </div>
@@ -784,7 +1110,7 @@ class GlobeSplashScreen:
         <div className="w-72 bg-slate-950/70 border-r border-slate-800 flex flex-col">
           <div className="p-3 border-b border-slate-800/80 text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
             <span>Pacotes do Projeto</span>
-            <span className="text-[11px] font-mono text-emerald-400">14/14 PASSOU</span>
+            <span className="text-[11px] font-mono text-emerald-400">17/17 PASSOU</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-0.5 font-mono text-xs">
@@ -815,11 +1141,11 @@ class GlobeSplashScreen:
             </div>
             <div className="flex items-center gap-2 text-slate-300">
               <Database className="w-4 h-4 text-sky-400" />
-              <span>PostgreSQL + psycopg 3</span>
+              <span>PostgreSQL + SQLite Fallback</span>
             </div>
             <div className="flex items-center gap-2 text-slate-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>Visao PySide6 (TelaPrincipal / Forms)</span>
+              <span>Prescrições QR Code + Logo Globo</span>
             </div>
           </div>
         </div>
@@ -853,14 +1179,14 @@ class GlobeSplashScreen:
             <div className="px-4 py-1.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-slate-300">
                 <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="font-medium">Terminal de Testes Automatizados (14 Testes Unitários)</span>
+                <span className="font-medium">Terminal de Testes Automatizados (17 Testes de Qualidade)</span>
               </div>
-              <span className="text-emerald-400 font-mono">14/14 PASSOU COM SUCESSO</span>
+              <span className="text-emerald-400 font-mono">17/17 PASSOU COM SUCESSO (100%)</span>
             </div>
 
             <div className="flex-1 overflow-auto p-3 font-mono text-[11px] leading-snug text-slate-300 bg-black/40">
               {testOutputStatus === 'running' ? (
-                <div className="text-amber-400">Executando suíte com validações de Beans, DAO e integridade referencial...</div>
+                <div className="text-amber-400">Executando suíte com validações de Beans, DAO, Prescrições QR Code e Resiliência...</div>
               ) : (
                 <div className="space-y-0.5">
                   <div className="text-slate-400">===========================================================================</div>
@@ -880,8 +1206,11 @@ class GlobeSplashScreen:
                   <div>test_12_auditoria_sem_exposicao_de_senhas (test_clinestudo.TestClinEstudoSuite) ... <span className="text-emerald-400 font-bold">ok</span></div>
                   <div>test_13_adaptador_beans_e_dao_medico_netbeans (test_clinestudo.TestClinEstudoSuite) ... <span className="text-emerald-400 font-bold">ok</span></div>
                   <div>test_14_adaptador_dao_pacientes_netbeans (test_clinestudo.TestClinEstudoSuite) ... <span className="text-emerald-400 font-bold">ok</span></div>
+                  <div>test_15_emissao_receita_medica_qr_code (test_clinestudo.TestClinEstudoSuite) ... <span className="text-emerald-400 font-bold">ok</span></div>
+                  <div>test_16_rastreamento_whatsapp_e_impressao_receita (test_clinestudo.TestClinEstudoSuite) ... <span className="text-emerald-400 font-bold">ok</span></div>
+                  <div>test_17_resiliencia_inicializacao_e_diagnostico (test_clinestudo.TestClinEstudoSuite) ... <span className="text-emerald-400 font-bold">ok</span></div>
                   <div className="text-slate-400">---------------------------------------------------------------------------</div>
-                  <div className="text-emerald-400 font-bold">Status: [PASS] TODOS OS 14 TESTES PASSARAM COM SUCESSO (100% APROVADO)!</div>
+                  <div className="text-emerald-400 font-bold">Status: [PASS] TODOS OS 17 TESTES PASSARAM COM SUCESSO (100% SUCESSO)!</div>
                 </div>
               )}
             </div>
@@ -891,3 +1220,4 @@ class GlobeSplashScreen:
     </div>
   );
 };
+

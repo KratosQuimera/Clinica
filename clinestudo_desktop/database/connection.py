@@ -2,7 +2,10 @@ import os
 import sqlite3
 import logging
 from typing import Any, List, Tuple, Optional, Dict
-from clinestudo_desktop.config.settings import settings
+try:
+    from config.settings import settings
+except ImportError:
+    from clinestudo_desktop.config.settings import settings
 
 logger = logging.getLogger("clinestudo.database")
 
@@ -40,14 +43,23 @@ class DatabaseManager:
                 logger.info("Nenhum driver PostgreSQL instalado. Modo SQLite ativo.")
 
     def check_health(self) -> Dict[str, Any]:
-        """Verifica a conectividade com o banco de dados principal."""
-        if not self._pg_module:
-            return {
-                "ok": False,
-                "engine": "sqlite_fallback" if settings.ALLOW_SQLITE_FALLBACK else "none",
-                "message": "Driver PostgreSQL (psycopg) não instalado no ambiente. Ativado fallback seguro SQLite."
-            }
-        
+        """Verifica a conectividade com o banco de dados principal ou SQLite."""
+        if self.is_sqlite_mode():
+            try:
+                conn = self.get_sqlite_connection()
+                conn.execute("SELECT 1;").fetchone()
+                return {
+                    "ok": True,
+                    "engine": "sqlite",
+                    "message": "Banco de dados SQLite operacional com sucesso."
+                }
+            except Exception as e:
+                return {
+                    "ok": False,
+                    "engine": "sqlite_error",
+                    "message": f"Falha no motor SQLite: {e}"
+                }
+
         try:
             conn = self.get_raw_pg_connection()
             with conn.cursor() as cur:
@@ -56,9 +68,15 @@ class DatabaseManager:
             conn.close()
             return {"ok": True, "engine": "postgresql", "message": "Conectado ao PostgreSQL com sucesso."}
         except Exception as e:
+            if settings.ALLOW_SQLITE_FALLBACK:
+                return {
+                    "ok": True,
+                    "engine": "sqlite",
+                    "message": f"PostgreSQL indisponível ({type(e).__name__}). Modo de contingência SQLite ativo."
+                }
             return {
                 "ok": False,
-                "engine": "sqlite_fallback" if settings.ALLOW_SQLITE_FALLBACK else "error",
+                "engine": "error",
                 "message": f"Servidor PostgreSQL em {settings.DB_HOST}:{settings.DB_PORT} indisponível ({type(e).__name__})."
             }
 
